@@ -1,0 +1,19 @@
+{
+  "name": "iws",
+  "version": "1.0.0",
+  "description": "Distributed Federated Learning Platform",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sd1998/IWS.git"
+  },
+  "author": "Shashvat Kedia",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sd1998/IWS/issues"
+  },
+  "homepage": "https://github.com/sd1998/IWS#readme"
+}
