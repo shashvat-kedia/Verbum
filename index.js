@@ -145,9 +145,3 @@ server.listen(PORT, function() {
   connectToRMQ()
   console.log("Listening on: " + PORT)
 });
-
-process.on('exit', cleanup.bind(null, { cleanup: true }))
-process.on('SIGINT', cleanup.bind(null, { exit: true }))
-process.on('SIGUSR1', cleanup.bind(null, { exit: true }))
-process.on('SIGUSR2', cleanup.bind(null, { exit: true }))
-process.on('uncaughtException', cleanup.bind(null, { exit: true }))
