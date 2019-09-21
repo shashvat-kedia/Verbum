@@ -7,7 +7,14 @@ const io = require('socket.io')(server);
 const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getMac');
+const zookeeper = require('node-zookeeper-client');
 const constants = require('./constants.js');
+const config = require('./config.js');
+const zookeeperClient = zookeeper.createClient(config['ZOOKEEPER_URL'], {
+  sessionTimeout: 30000,
+  spinDelay: 1000,
+  retries: 1
+});
 const amqp = require('amqplib');
 const app = express();
 
@@ -18,6 +25,49 @@ app.use(bodyParser.json())
 app.use(cors())
 
 openConnections = {}
+isZookeeperConnected = false
+nodeId = null
+
+zookeeperClient.on('connected', function() {
+  zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
+    if (err) {
+      console.error(err)
+      return
+    }
+    if (stat) {
+      isZookeeperConnected = true
+      console.log('Connected to zookeeper')
+    }
+    else {
+      zookeeperClient.mkdirp(config['ZOOKEEPER_NODES_PATH'], function(err, path) {
+        if (err) {
+          console.error(err)
+          return
+        }
+        console.log('Zookeeper node created at: ' + path)
+        isZookeeperConnected = true
+        console.log('Connected to zookeeper')
+      })
+    }
+  })
+})
+
+function cleanup(options, exitCode) {
+  if (nodeId != null) {
+    zookeeper.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
+      if (err) {
+        console.error(err)
+        return
+      }
+      console.log('Service instance zookeeper node removed.')
+    })
+  }
+}
+
+zookeeperClient.on('disconnected', function() {
+  isZookeeperConnected = false
+  console.log('Discoonnected from zookeeper')
+})
 
 function consumer(amqpConnection) {
   fs.access(constants['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
@@ -28,7 +78,9 @@ function consumer(amqpConnection) {
           console.error(err)
           return
         }
-        setupConsumer(amqpConnection, uuid(macAddress, constants['UUID_NAMESPACE']))
+        nodeId = uuid(macAddress, constants['UUID_NAMESPACE'])
+        updateZookeeper(nodeId)
+        setupConsumer(amqpConnection, nodeName)
       })
     }
     else {
@@ -36,9 +88,22 @@ function consumer(amqpConnection) {
         if (err) {
           console.error(err)
         }
-        setupConsumer(amqpConnection, data)
+        nodeId = data
+        updateZookeeper(nodeId)
+        setupConsumer(amqpConnection, nodeId)
       })
     }
+  })
+}
+
+function updateZookeeper(nodeName) {
+  var nodePath = config['ZOOKEEPER_NODES_PATH'] + '/' + nodeName
+  zookeeperClient.create(nodePath, Buffer.from(nodeName), function(err, path) {
+    if (err) {
+      console.error(err)
+      return
+    }
+    console.log('Zookeeper node created for service instance at: ' + path)
   })
 }
 
@@ -76,6 +141,13 @@ io.on('connection', (socket) => {
 })
 
 server.listen(PORT, function() {
+  zookeeperClient.connect()
   connectToRMQ()
   console.log("Listening on: " + PORT)
 });
+
+process.on('exit', cleanup.bind(null, { cleanup: true }))
+process.on('SIGINT', cleanup.bind(null, { exit: true }))
+process.on('SIGUSR1', cleanup.bind(null, { exit: true }))
+process.on('SIGUSR2', cleanup.bind(null, { exit: true }))
+process.on('uncaughtException', cleanup.bind(null, { exit: true }))
