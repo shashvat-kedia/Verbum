@@ -43,7 +43,7 @@ zookeeperClient.on('connected', function() {
 
 app.post('/send', function(req, res) {
   if (isConnectedToZookeeper && servicesRunning) {
-    zookeeperClient.get
+    //zookeeperClient.get
   }
   else {
     res.status(200).json({

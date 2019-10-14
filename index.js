@@ -20,6 +20,10 @@ const app = express();
 
 const PORT = 8000 || process.env.PORT
 
+// TODO: Shigt to DHT from Apache Zookeeper. Zookeeper uses sequential writes validity of which is
+// quorum based due to which the complexity of lookup is O(n). To shift to O(log(n)) we have to 
+// shift to Distributed Hash Tables mainly Chord Protocol.  
+
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 app.use(cors())
