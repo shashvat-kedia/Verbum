@@ -21,6 +21,14 @@ services:
     ports:
       - target: 15678
         published: 15678
+  eureka:
+    restart: always
+    build:
+      context: ./external/eureka
+      dockerfile: Dockerfile
+    ports:
+      - target: 8761
+        published: 8761
   fanout:
     restart: always
     build:
@@ -35,6 +43,7 @@ services:
     depends_on:
       - zookeeper
       - rabbitmq
+      - eureka
   notification:
     restart: always
     build:
