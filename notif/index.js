@@ -7,8 +7,8 @@ const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getMac');
 const zookeeper = require('node-zookeeper-client');
-const constants = require('./constants.js');
-const config = require('./config.js');
+const constants = require('../constants.js');
+const config = require('../config.js');
 const zookeeperClient = zookeeper.createClient(config['ZOOKEEPER_URL'], {
   sessionTimeout: 30000,
   spinDelay: 1000,
@@ -19,7 +19,7 @@ const grpc = reequire('grpc');
 const app = express();
 
 const grpcServer = new grpc.Server()
-const notificationProto = grpc.load('../notification.proto')
+const notificationProto = grpc.load('../proto/notification.proto')
 
 const PORT = 8000 || process.env.PORT
 
@@ -162,5 +162,8 @@ io.on('connection', (socket) => {
 server.listen(PORT, function() {
   zookeeperClient.connect()
   connectToRMQ()
+  grpcServer.bind('localhost:8001', grpc.ServerCredentials.createInsecure())
+  server.start()
+  console.log('grpc server running at: ' + 8001)
   console.log("Listening on: " + PORT)
 });

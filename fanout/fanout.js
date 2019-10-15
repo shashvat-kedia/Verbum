@@ -2,8 +2,8 @@ const express = require('express');
 const amqp = require('amqplib');
 const zookeeper = require('node-zookeeper-client');
 const zookeeperClient = zookeeperClient.createClient(config['ZOOKEEPER_URL']);
-const config = require('./config.js');
-const constants = require('./constants.js');
+const config = require('../config.js');
+const constants = require('../constants.js');
 const app = express();
 
 var publisherChannel = null;
