@@ -10,7 +10,7 @@ var publisherChannel = null;
 var isConnectedToZookeeper = false;
 var servicesRunning = false;
 
-const PORT = 8001 || process.env.PORT
+const PORT = 6001 || process.env.PORT
 
 function publisher(amqpConnection) {
   amqpConnection.createChannel(onPublisherStart);

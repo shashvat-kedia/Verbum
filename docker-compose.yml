@@ -1,0 +1,53 @@
+version: "3.3"
+services:
+  zookeeper:
+    image: zookeeper:3.5.5
+    restart: always
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zoo1:2888:3888;4888 server.2=0.0.0.0:2888:3888;4888 server.3=zoo3:2888:3888;4888
+    ports:
+      - target: 2182
+        published: 2181
+  rabbitmq:
+    image: bitnami/rabbitmq:latest
+    environment:
+      - RABBITMQ_NODE_TYPE=queue-disc
+      - RABBITMQ_NODE_NAME=rabbit@queue-disc1
+      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+      - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+    volumes:
+      - "rabbitmqdisc1_data:/bitnami"
+    ports:
+      - target: 15678
+        published: 15678
+  fanout:
+    restart: always
+    build:
+      context: ./fanout
+      dockerfile: Dockerfile
+    deploy:
+      mode: replicated
+      replicas: 3
+    ports:
+      - target: 6001
+        published: 6001
+    depends_on:
+      - zookeeper
+      - rabbitmq
+  notification:
+    restart: always
+    build:
+      context: ./notif
+      dockerfile: Dockerfile
+    deploy:
+      mode: replicated
+      replicas: 3
+    ports:
+      - target: 8000
+        published: 8000
+    depends_on:
+      - fanout
+volumes:
+  rabbitmqdisc1_data:
+    driver: local
