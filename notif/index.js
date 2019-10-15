@@ -7,19 +7,13 @@ const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getMac');
 const zookeeper = require('node-zookeeper-client');
-const constants = require('../constants.js');
-const config = require('../config.js');
 const zookeeperClient = zookeeper.createClient(config['ZOOKEEPER_URL'], {
   sessionTimeout: 30000,
   spinDelay: 1000,
   retries: 1
 });
 const amqp = require('amqplib');
-const grpc = reequire('grpc');
 const app = express();
-
-const grpcServer = new grpc.Server()
-const notificationProto = grpc.load('../proto/notification.proto')
 
 const PORT = 8000 || process.env.PORT
 
@@ -30,22 +24,6 @@ app.use(cors())
 openConnections = {}
 isZookeeperConnected = false
 nodeId = null
-
-grpcServer.addService(notificationProto.NotificationService.service, {
-  Send(call, callback) {
-    messageJSON = JSON.parse(call.request.message)
-    clientIds = call.request.clientIds
-    failedClientsIds = []
-    for (var i = 0; i < clientIds.length; i++) {
-      if (openConnections[clientIds[i]] != null) {
-        openConnections[clientIds[i]].emit(config['NOTIFICATION_CHANNEL'], messageJSON)
-      }
-      else {
-        failedClientIds.push(clientIds[i])
-      }
-    }
-  }
-})
 
 zookeeperClient.on('connected', function() {
   zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
@@ -136,10 +114,18 @@ function setupConsumer(amqpConnection, nodeName) {
     channel.assertQueue(nodeName)
     channel.consume(nodeName, function(message) {
       if (message != null) {
-        sendPushNotification(message)
+        sendPushNotification(JSON.parse(message.content.toString('utf8')))
         channel.ack(message)
       }
     })
+  }
+}
+
+function sendPushNotification(message) {
+  for (var clientId in message.clientIds) {
+    if (openConnections[clientId] != null) {
+      openConnections[clientId].emit(config['NOTIFICATION_CHANNEL'], message.body)
+    }
   }
 }
 

@@ -30,7 +30,7 @@ function consumer(amqpConnection) {
       process.exit(1)
     }
     channel.assertQueue(config['FAN_OUT_QUEUE'])
-    channel.consume()
+    channel.consume(config['FAN_OUT_QUEUE'], consume)
     consumerChannel = channel
   }
 }
@@ -103,6 +103,10 @@ zookeeperClient.on('connected', function() {
       }
     })
   }
+})
+
+zookeeperClient.on('disconnected', function() {
+  isConnectedToZookeeper = false
 })
 
 function consume(message) {
