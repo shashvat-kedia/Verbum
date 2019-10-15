@@ -1,7 +1,16 @@
 syntax="proto3";
 
 message TrainConfig {
-  
+  repeated string client_id = 1;
+  int64 model_id = 2;
+  repeated double train_test_valid_split = 3;
 }
 
-service 
+message TrainMetrics {
+  double accuracy = 1;
+  double loss = 2;
+}
+
+service TrainOp {
+  rpc StartTraining(TrainConfig) returns (TrainMetrics) {}
+}

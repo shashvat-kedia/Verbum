@@ -18,7 +18,7 @@ services:
     restart: always
     build:
       context: ./fanout
-      dockerfile: ./fanoout/Dockerfile
+      dockerfile: ./fanout/Dockerfile
     deploy:
       mode: replicated
       replicas: 3

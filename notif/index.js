@@ -1,5 +1,4 @@
 const express = require('express');
-const mongod = require('mongod');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const server = require('http').createServer();
@@ -16,13 +15,13 @@ const zookeeperClient = zookeeper.createClient(config['ZOOKEEPER_URL'], {
   retries: 1
 });
 const amqp = require('amqplib');
+const grpc = reequire('grpc');
 const app = express();
 
-const PORT = 8000 || process.env.PORT
+const grpcServer = new grpc.Server()
+const notificationProto = grpc.load('../notification.proto')
 
-// TODO: Shigt to DHT from Apache Zookeeper. Zookeeper uses sequential writes validity of which is
-// quorum based due to which the complexity of lookup is O(n). To shift to O(log(n)) we have to 
-// shift to Distributed Hash Tables mainly Chord Protocol.  
+const PORT = 8000 || process.env.PORT
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
@@ -31,6 +30,22 @@ app.use(cors())
 openConnections = {}
 isZookeeperConnected = false
 nodeId = null
+
+grpcServer.addService(notificationProto.NotificationService.service, {
+  Send(call, callback) {
+    messageJSON = JSON.parse(call.request.message)
+    clientIds = call.request.clientIds
+    failedClientsIds = []
+    for (var i = 0; i < clientIds.length; i++) {
+      if (openConnections[clientIds[i]] != null) {
+        openConnections[clientIds[i]].emit(config['NOTIFICATION_CHANNEL'], messageJSON)
+      }
+      else {
+        failedClientIds.push(clientIds[i])
+      }
+    }
+  }
+})
 
 zookeeperClient.on('connected', function() {
   zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
