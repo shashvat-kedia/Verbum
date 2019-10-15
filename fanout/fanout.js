@@ -1,6 +1,10 @@
 const amqp = require('amqplib');
 const zookeeper = require('node-zookeeper-client');
-const zookeeperClient = zookeeperClient.createClient(config['ZOOKEEPER_URL']);
+const zookeeperClient = zookeeperClient.createClient('localhost:2181', {
+  sessionTimeout: 30000,
+  spinDelay: 1000,
+  retries: 1
+});
 
 var publisherChannel = null;
 var consumerChannel = null;

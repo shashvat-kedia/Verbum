@@ -7,7 +7,7 @@ const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getMac');
 const zookeeper = require('node-zookeeper-client');
-const zookeeperClient = zookeeper.createClient(config['ZOOKEEPER_URL'], {
+const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,
   spinDelay: 1000,
   retries: 1
