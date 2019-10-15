@@ -1,2 +1,2 @@
-# -PLEASE_SUGGEST_PROJECT_NAME-
+# Verbum
 Distributed Federated Learning Platform
