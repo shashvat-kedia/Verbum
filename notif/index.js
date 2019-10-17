@@ -5,7 +5,7 @@ const server = require('http').createServer();
 const io = require('socket.io')(server);
 const uuid = require('uuid/v3');
 const fs = require('fs');
-const getMac = require('getMac');
+const getMac = require('getmac');
 const zookeeper = require('node-zookeeper-client');
 const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,

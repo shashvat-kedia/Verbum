@@ -34,9 +34,9 @@ services:
     build:
       context: ./fanout
       dockerfile: Dockerfile
-    deploy:
-      mode: replicated
-      replicas: 3
+    # deploy:
+    #   mode: replicated
+    #   replicas: 3
     ports:
       - target: 6001
         published: 6001
@@ -49,9 +49,9 @@ services:
     build:
       context: ./notif
       dockerfile: Dockerfile
-    deploy:
-      mode: replicated
-      replicas: 3
+    # deploy:
+    #   mode: replicated
+    #   replicas: 3
     ports:
       - target: 8000
         published: 8000

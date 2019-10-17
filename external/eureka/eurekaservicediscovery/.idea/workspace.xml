@@ -2,11 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1101cd38-4d52-41db-8dfd-fc8022d4222b" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dependency-reduced-pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dependency-reduced-pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../../fanout/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../fanout/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../notif/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../notif/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../notif/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../notif/package.json" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

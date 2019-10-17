@@ -21,6 +21,7 @@
     "body-parser": "^1.19.0",
     "cluster": "^0.7.7",
     "cors": "^2.8.5",
+    "eureka-js-client": "^4.5.0",
     "express": "^4.17.1",
     "getmac": "^1.4.6",
     "node-zookeeper-client": "^1.1.0",
