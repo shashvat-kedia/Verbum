@@ -1,0 +1,9 @@
+syntax="proto3";
+
+message ClientList {
+  repeated string clients = 1;
+}
+
+service NotificationService {
+  rpc GetActiveClients(string) returns ClientList; 
+}

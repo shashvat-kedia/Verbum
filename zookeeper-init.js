@@ -15,14 +15,7 @@ zookeeperClient.on('connected', function() {
       console.error(err)
       process.exit(1)
     }
-    zookeeperClient.getData('/config', function(err, data, stat) {
-      if (err) {
-        console.error(err)
-        return
-      }
-      if (stat) {
-        console.log(JSON.parse(data.toString('utf8')))
-      }
-    })
+    console.log('Initial config stored at path: ' + path)
+    process.exit(1)
   })
 })
