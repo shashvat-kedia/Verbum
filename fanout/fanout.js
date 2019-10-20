@@ -103,7 +103,7 @@ zookeeperClient.on('connected', function() {
         })
       }
       else {
-        servicesRunning = false
+        process.exit(1)
       }
     })
   }

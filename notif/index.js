@@ -7,6 +7,7 @@ const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getmac');
 const zookeeper = require('node-zookeeper-client');
+const eureka = require('eureka-js-client').Eureka;
 const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,
   spinDelay: 1000,
@@ -24,6 +25,24 @@ app.use(cors())
 openConnections = {}
 isZookeeperConnected = false
 nodeId = null
+
+const client = new Eureka({
+  instance: {
+    app: 'notif',
+    hostName: 'localhost',
+    ipAddr: '127.0.0.1',
+    port: PORT,
+    vipAddress: 'notif',
+    dataCenterInfo: {
+      name: 'test'
+    }
+  },
+  eureka: {
+    host: '127.0.0.1',
+    port: 8761
+  }
+}
+)
 
 zookeeperClient.on('connected', function() {
   zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
@@ -147,9 +166,14 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, function() {
   zookeeperClient.connect()
+  client.start()
   connectToRMQ()
   grpcServer.bind('localhost:8001', grpc.ServerCredentials.createInsecure())
   server.start()
   console.log('grpc server running at: ' + 8001)
   console.log("Listening on: " + PORT)
 });
+
+process.on('exit', function() {
+  client.stop()
+})
