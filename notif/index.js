@@ -72,6 +72,14 @@ function getData(client, path, done) {
 
 zookeeperClient.on('connected', function() {
   console.log("Connected to zookeeper")
+  client.start(function(err) {
+    if (err) {
+      throw err
+    }
+    console.log('Registered with Eureka')
+    registeredWithEureka = true
+    console.log(client.getInstancesByAppId('notif'))
+  })
   zookeeperClient.exists('/config', function(err, stat) {
     if (err) {
       console.error(err)
@@ -213,6 +221,17 @@ function connectToRMQ() {
   })
 }
 
+function deRegister(isProcessExit) {
+  if (registeredWithEureka) {
+    client.stop(function() {
+      console.log('Service stopped')
+      if (isProcessExit) {
+        process.exit()
+      }
+    })
+  }
+}
+
 io.on('connection', (socket) => {
   if (socket['id'] != null && openConnections[socketId] == null) {
     openConnections[socket['id']] = socket
@@ -225,9 +244,9 @@ server.listen(PORT, function() {
 });
 
 process.on('exit', function() {
-  if (registeredWithEureka) {
-    client.stop(function() {
-      console.log('Service stopped')
-    })
-  }
+  deRegister(true)
 })
+
+process.on('SIGINT', function() {
+  deRegister(true)
+}) 
