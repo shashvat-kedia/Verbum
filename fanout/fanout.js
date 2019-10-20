@@ -1,12 +1,14 @@
 const amqp = require('amqplib');
 const zookeeper = require('node-zookeeper-client');
-const zookeeperClient = zookeeperClient.createClient('localhost:2181', {
+const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,
   spinDelay: 1000,
   retries: 1
 });
 
 var publisherChannel = null;
+var pendingQueueAssertions = [];
+var pendingPublishMessages = [];
 var consumerChannel = null;
 var isConnectedToZookeeper = false;
 var servicesRunning = false;
@@ -23,6 +25,14 @@ function publisher(amqpConnection, nodePaths) {
     }
     createQueueForNodes(nodePaths)
     publisherChannel = channel
+    for (queueName in pendingQueueAssertions) {
+      publisherChannel.assertQueue(queueName)
+    }
+    for (pendingMessage in pendingPublishMessages) {
+      publisherChannel.sendToQueue(pendingMessage['queueName'], pendingMessage['message'])
+    }
+    pendingQueueAssertions = []
+    pendingPublishMessages = []
   }
 }
 
@@ -44,6 +54,9 @@ function createQueueForNodes(nodePaths) {
     for (var node in nodePaths) {
       publisherChannel.assertQueue(node)
     }
+  }
+  else {
+    Arrays.prototype.push.apply(pendingQueueAssertions, nodePaths)
   }
 }
 
@@ -89,6 +102,13 @@ zookeeperClient.on('connected', function() {
         console.log('Connected to zookeeper');
         getData(zookeeperClient, './config', function(data) {
           config = JSON.parse(data)
+          amqp.connect(config.RMQ_URL, function(err, amqpConnection) {
+            if (err) {
+              console.error(err)
+              return
+            }
+            consumer(amqpConnection)
+          })
           getChildren(zookeeperClient, config['ZOOKEEPER_NODES_PATH'], function(updatedNodePaths) {
             newNodePaths = []
             for (var node in updatedNodePaths) {
@@ -116,7 +136,15 @@ zookeeperClient.on('disconnected', function() {
 function consume(message) {
   if (isConnectedToZookeeper && servicesRunning) {
     for (var node in nodesPath) {
-      publisherChannel.sendToQueue(node, Buffer.from(JSON.stringify(message.content.toString('utf8'))))
+      if (publisherChannel != null) {
+        publisherChannel.sendToQueue(node, Buffer.from(JSON.stringify(message.content.toString('utf8'))))
+      }
+      else {
+        pendingPublishMessage.push({
+          'queueName': node,
+          'message': Buffer.from(JSON.stringify(message.content.toString('utf8')))
+        })
+      }
     }
     consumerChannel.ack(message)
   }
@@ -126,10 +154,3 @@ function consume(message) {
 }
 
 zookeeperClient.connect()
-amqp.connect(config.RMQ_URL, function(err, amqpConnection) {
-  if (err) {
-    console.error(err)
-    return
-  }
-  consumer(amqpConnection)
-})

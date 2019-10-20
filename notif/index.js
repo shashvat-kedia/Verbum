@@ -14,7 +14,7 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   retries: 1
 });
 const amqp = require('amqplib');
-const config = null;
+var config = null;
 const app = express();
 
 const PORT = 8000 || process.env.PORT
@@ -46,7 +46,7 @@ const client = new Eureka({
     registerWithEureka: true
   },
   eureka: {
-    host: '127.0.0.1',
+    host: 'localhost',
     port: 8761,
     servicePath: '/eureka/apps/'
   }

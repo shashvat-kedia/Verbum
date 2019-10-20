@@ -24,8 +24,8 @@ services:
       context: ./external/eureka
       dockerfile: Dockerfile
     ports:
-      - target: 9091
-        published: 9091
+      - target: 8761
+        published: 8761
   fanout:
     restart: always
     build:
