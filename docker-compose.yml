@@ -1,13 +1,10 @@
 version: "3.3"
 services:
   zookeeper:
-    image: zookeeper:3.5.5
+    image: jplock/zookeeper
     restart: always
-    environment:
-      ZOO_MY_ID: 2
-      ZOO_SERVERS: server.1=zoo1:2888:3888;4888 server.2=0.0.0.0:2888:3888;4888 server.3=zoo3:2888:3888;4888
     ports:
-      - target: 2182
+      - target: 2181
         published: 2181
   rabbitmq:
     image: bitnami/rabbitmq:latest
@@ -27,8 +24,8 @@ services:
       context: ./external/eureka
       dockerfile: Dockerfile
     ports:
-      - target: 8761
-        published: 8761
+      - target: 9091
+        published: 9091
   fanout:
     restart: always
     build:

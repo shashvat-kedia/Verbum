@@ -2,8 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1101cd38-4d52-41db-8dfd-fc8022d4222b" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/../../../docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../../../docker-compose.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../../notif/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../notif/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../fls/fls.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../../fls/fls.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../model.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../notif/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../../notif/index.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../../notif/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../notif/package.json" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -21,6 +25,12 @@
   <component name="ProjectId" id="1SFL1QEAItKsOOCk7qnSjJR0nlY" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="PropertiesComponent">
+    <property name="RequestMappingsPanelOrder0" value="0" />
+    <property name="RequestMappingsPanelOrder1" value="1" />
+    <property name="RequestMappingsPanelOrder2" value="2" />
+    <property name="RequestMappingsPanelWidth0" value="75" />
+    <property name="RequestMappingsPanelWidth1" value="75" />
+    <property name="RequestMappingsPanelWidth2" value="75" />
     <property name="aspect.path.notification.shown" value="true" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="/usr/local/bin/node" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
@@ -38,7 +48,14 @@
       </list>
     </option>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Spring Boot.EurekaServerApplication (1)">
+    <configuration name="EurekaServerApplication (1)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" temporary="true" nameIsGenerated="true">
+      <module name="eureka-service-discovery" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="org.verbum.eurekaservicediscovery.EurekaServerApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="EurekaServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
       <module name="eurekaservicediscovery1" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="org.verbum.eurekaservicediscovery.EurekaServerApplication" />
@@ -46,6 +63,11 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Spring Boot.EurekaServerApplication (1)" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />

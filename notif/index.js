@@ -7,13 +7,14 @@ const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getmac');
 const zookeeper = require('node-zookeeper-client');
-const eureka = require('eureka-js-client').Eureka;
+const Eureka = require('eureka-js-client').Eureka;
 const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,
   spinDelay: 1000,
   retries: 1
 });
 const amqp = require('amqplib');
+const config = null;
 const app = express();
 
 const PORT = 8000 || process.env.PORT
@@ -25,45 +26,99 @@ app.use(cors())
 openConnections = {}
 isZookeeperConnected = false
 nodeId = null
+registeredWithEureka = false
 
 const client = new Eureka({
   instance: {
     app: 'notif',
+    instanceId: 'notif-1',
     hostName: 'localhost',
     ipAddr: '127.0.0.1',
-    port: PORT,
-    vipAddress: 'notif',
+    port: {
+      '$': PORT,
+      '@enabled': true
+    },
+    vipAddress: 'notifvip',
     dataCenterInfo: {
-      name: 'test'
-    }
+      '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
+      name: 'MyOwn'
+    },
+    registerWithEureka: true
   },
   eureka: {
     host: '127.0.0.1',
-    port: 8761
+    port: 8761,
+    servicePath: '/eureka/apps/'
   }
-}
-)
+})
+client.logger.level('debug')
 
-zookeeperClient.on('connected', function() {
-  zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
+function getData(client, path, done) {
+  client.getData(path, function(event) {
+    getData(client, path, done)
+  }, function(err, data, stat) {
     if (err) {
       console.error(err)
       return
     }
     if (stat) {
-      isZookeeperConnected = true
-      console.log('Connected to zookeeper')
+      done(data.toString('utf8'))
     }
     else {
-      zookeeperClient.mkdirp(config['ZOOKEEPER_NODES_PATH'], function(err, path) {
+      done(null)
+    }
+  })
+}
+
+zookeeperClient.on('connected', function() {
+  console.log("Connected to zookeeper")
+  zookeeperClient.exists('/config', function(err, stat) {
+    if (err) {
+      console.error(err)
+      process.exit(1)
+    }
+    if (stat) {
+      getData(zookeeperClient, '/config', function(data) {
         if (err) {
           console.error(err)
           return
         }
-        console.log('Zookeeper node created at: ' + path)
-        isZookeeperConnected = true
-        console.log('Connected to zookeeper')
+        config = JSON.parse(data)
+        zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
+          if (err) {
+            console.error(err)
+            return
+          }
+          if (stat) {
+            isZookeeperConnected = true
+            console.log('Connected to zookeeper')
+          }
+          else {
+            zookeeperClient.mkdirp(config['ZOOKEEPER_NODES_PATH'], function(err, path) {
+              if (err) {
+                console.error(err)
+                return
+              }
+              console.log('Zookeeper node created at: ' + path)
+              isZookeeperConnected = true
+              console.log('Connected to zookeeper')
+            })
+          }
+        })
+        client.start(function(err) {
+          if (err) {
+            throw err
+          }
+          console.log('Registered with Eureka')
+          registeredWithEureka = true
+          console.log(client.getInstancesByAppId('notif'))
+        })
+        connectToRMQ()
       })
+    }
+    else {
+      console.error("Config not preseent on zookeeper")
+      //process.exit(1)
     }
   })
 })
@@ -166,14 +221,13 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, function() {
   zookeeperClient.connect()
-  client.start()
-  connectToRMQ()
-  grpcServer.bind('localhost:8001', grpc.ServerCredentials.createInsecure())
-  server.start()
-  console.log('grpc server running at: ' + 8001)
   console.log("Listening on: " + PORT)
 });
 
 process.on('exit', function() {
-  client.stop()
+  if (registeredWithEureka) {
+    client.stop(function() {
+      console.log('Service stopped')
+    })
+  }
 })

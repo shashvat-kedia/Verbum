@@ -72,9 +72,9 @@ zookeeperClient.on('connected', function() {
         isConnectedToZookeeper = true
         console.log('Connected to Zookeeper')
         getData(zookeeperClient, './config', function(data) {
-          console.loog('Config obtained from Zookeeper')
+          console.log('Config obtained from Zookeeper')
           config = JSON.parse(data)
-          startAMQP()
+          //startAMQP()
         })
       }
       else {
