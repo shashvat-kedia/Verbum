@@ -5,6 +5,7 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   spinDelay: 1000,
   retries: 1
 });
+var config = null
 
 var publisherChannel = null;
 var pendingQueueAssertions = [];
@@ -56,7 +57,7 @@ function createQueueForNodes(nodePaths) {
     }
   }
   else {
-    Arrays.prototype.push.apply(pendingQueueAssertions, nodePaths)
+    Array.prototype.push.apply(pendingQueueAssertions, nodePaths)
   }
 }
 
@@ -100,8 +101,9 @@ zookeeperClient.on('connected', function() {
         isConnectedToZookeeper = true
         servicesRunning = true
         console.log('Connected to zookeeper');
-        getData(zookeeperClient, './config', function(data) {
+        getData(zookeeperClient, '/config', function(data) {
           config = JSON.parse(data)
+          console.log(config)
           amqp.connect(config.RMQ_URL, function(err, amqpConnection) {
             if (err) {
               console.error(err)
