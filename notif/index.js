@@ -72,14 +72,6 @@ function getData(client, path, done) {
 
 zookeeperClient.on('connected', function() {
   console.log("Connected to zookeeper")
-  client.start(function(err) {
-    if (err) {
-      throw err
-    }
-    console.log('Registered with Eureka')
-    registeredWithEureka = true
-    console.log(client.getInstancesByAppId('notif'))
-  })
   zookeeperClient.exists('/config', function(err, stat) {
     if (err) {
       console.error(err)
