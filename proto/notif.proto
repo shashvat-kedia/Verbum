@@ -1,7 +1,16 @@
 syntax="proto3";
 
+message Client {
+  string socketId = 1;
+  string notifIns = 2;
+}
+
 message ClientList {
-  repeated string clients = 1;
+  repeated Client clients = 1;
+}
+
+message ModelDetails {
+  string id = 1;
 }
 
 service NotificationService {

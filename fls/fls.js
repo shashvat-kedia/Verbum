@@ -18,12 +18,23 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'combined.log' })
   ]
 })
+const q = require('q');
 const Eureka = require('eureka-js-client').Eureka;
 const app = express()
+const grpc = require('grpc');
+const notifServiceProto = grpc.load('../proto/notif.proto');
+const grpcClient = new notifServiceProto.NotificationService('localhost:5001', grpc.credentials.createInsecure())
 
 const PORT = 8030 || process.env.PORT;
 
 var config = null;
+
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.json())
+app.use(cors())
+
+var publisherChannel = null;
+var isConnectedToZookeeper = false;
 
 function createEurekaClient(config) {
   return new Eureka({
@@ -51,12 +62,17 @@ function createEurekaClient(config) {
   })
 }
 
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
-app.use(cors())
+function getActiveClientList(modelId) {
+  grpcClient.GetActiveClients({
+    modelId: modelId
+  }, function(err, response) {
+    if (err) {
+      console.error(err)
+      logger.error(err)
+    }
 
-var publisherChannel = null;
-var isConnectedToZookeeper = false;
+  })
+}
 
 function startPublisher(amqpConnection) {
   amqpConnection.createChannel(onPublisherStart);
@@ -144,9 +160,9 @@ app.get('/train/:modelId/:minClients', function(req, res) {
   serviceURLs = []
   var notifServices = client.getInstancesByAppId('notif')
   for (var i = 0; i < notifServices.length; i++) {
-    console.log(notifServices[i])
     serviceURLs.push(notifServices[i]['ipAddr'] + ':' + notifServices[i]['port']['$'])
   }
+
 })
 
 app.listen(PORT, function() {

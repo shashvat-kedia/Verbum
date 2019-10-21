@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const server = require('http').createServer();
-const io = require('socket.io')(server);
+const io = require('socket.io')(server, { 'pingInterval': 5000, 'pingTimeout': 15000 });
 const uuid = require('uuid/v3');
 const fs = require('fs');
 const getMac = require('getmac');
@@ -14,6 +14,9 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   retries: 1
 });
 const amqp = require('amqplib');
+const grpc = require('grpc');
+const grpcServer = new grpc.Server();
+const notifServiceProto = grpc.load('../proto/notif.proto');
 var config = null;
 const app = express();
 
@@ -27,6 +30,23 @@ openConnections = {}
 isZookeeperConnected = false
 nodeId = null
 registeredWithEureka = false
+
+grpcServer.addService(notifServiceProto.NotificationService.service, {
+  GetActiveClients: function(call, callbacks) {
+    availableClients = []
+    for (var id in openConnections) {
+      if (!openConnections[id]['modelIdLock']) {
+        availableClients.push({
+          socketId: id,
+          notifIns: nodeId
+        })
+        openConnections[id]['modelIdLock'] = true
+        openConnections[id]['modelId'] = call.id
+      }
+    }
+    callback(null, availableClients)
+  }
+})
 
 function getEurekaClient(config) {
   return new Eureka({
@@ -115,6 +135,8 @@ zookeeperClient.on('connected', function() {
           registeredWithEureka = true
           console.log(client.getInstancesByAppId('notif'))
         })
+        grpcServer.bind('127.0.0.1:5001', grpc.ServerCredentials.createInsecure())
+        grpcServer.start()
         connectToRMQ()
       })
     }
@@ -228,7 +250,11 @@ function deRegister(isProcessExit) {
 
 io.on('connection', (socket) => {
   if (socket['id'] != null && openConnections[socketId] == null) {
-    openConnections[socket['id']] = socket
+    openConnections[socket['id']] = {
+      socket: socket,
+      modelIdLock: false,
+      modelId: null
+    }
   }
 })
 
