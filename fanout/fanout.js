@@ -5,8 +5,8 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   spinDelay: 1000,
   retries: 1
 });
-var config = null
 
+var config = null
 var publisherChannel = null;
 var pendingQueueAssertions = [];
 var pendingPublishMessages = [];

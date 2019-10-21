@@ -1,8 +1,0 @@
-{"message":"FLS service listening on: 8030","level":"info","service":"fls-service"}
-{"message":"Connected to Zookeeper","level":"info","service":"fls-service"}
-{"message":"FLS service listening on: 8030","level":"info","service":"fls-service"}
-{"message":"Connected to Zookeeper","level":"info","service":"fls-service"}
-{"message":"Config obtained from Zookeeper","level":"info","service":"fls-service"}
-{"message":"FLS service listening on: 8030","level":"info","service":"fls-service"}
-{"message":"Connected to Zookeeper","level":"info","service":"fls-service"}
-{"message":"Config obtained from Zookeeper","level":"info","service":"fls-service"}
