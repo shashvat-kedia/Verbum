@@ -1,11 +1,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const q = require('q');
 const grpc = require('grpc');
 const amqp = require('amqplib');
 const zookeeper = require('node-zookeeper-client');
-const zookeeperClient = zookeeperClient.createClient('localhost:2181', {
+const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,
   spinDelay: 1000,
   retries: 1
@@ -20,34 +19,37 @@ const logger = winston.createLogger({
   ]
 })
 const Eureka = require('eureka-js-client').Eureka;
-const config = null;
 const app = express()
 
-const client = new Eureka({
-  instance: {
-    app: 'fls',
-    instanceId: 'fls-1',
-    hostName: 'localhost',
-    ipAddr: '127.0.0.1',
-    port: {
-      '$': PORT,
-      '@enabled': true
-    },
-    vipAddress: 'notifvip',
-    dataCenterInfo: {
-      '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
-      name: 'MyOwn'
-    },
-    registerWithEureka: true
-  },
-  eureka: {
-    host: 'localhost',
-    port: 8761,
-    servicePath: '/eureka/apps/'
-  }
-})
+const PORT = 8030 || process.env.PORT;
 
-const PORT = 8080 || process.env.PORT
+var config = null;
+
+function createEurekaClient(config) {
+  return new Eureka({
+    instance: {
+      app: 'fls',
+      instanceId: 'fls-1',
+      hostName: 'localhost',
+      ipAddr: '127.0.0.1',
+      port: {
+        '$': PORT,
+        '@enabled': true
+      },
+      vipAddress: 'notifvip',
+      dataCenterInfo: {
+        '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
+        name: 'MyOwn'
+      },
+      registerWithEureka: true
+    },
+    eureka: {
+      host: config['EUREKA_HOST'],
+      port: config['EUREKA_PORT'],
+      servicePath: '/eureka/apps/'
+    }
+  })
+}
 
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
@@ -113,9 +115,10 @@ zookeeperClient.on('connected', function() {
       if (stat) {
         isConnectedToZookeeper = true
         logger.info('Connected to Zookeeper')
-        getData(zookeeperClient, './config', function(data) {
+        getData(zookeeperClient, '/config', function(data) {
           logger.info('Config obtained from Zookeeper')
           config = JSON.parse(data)
+          client = createEurekaClient(config)
           client.start(function(err) {
             if (err) {
               throw err
@@ -137,12 +140,12 @@ zookeeperClient.on('disconnected', function() {
 })
 
 app.get('/train/:modelId/:minClients', function(req, res) {
-
+  var notifServices = client.getInstancesByAppId(config['NOTIFICATION_SERVICE_APP_ID'])
 })
 
 app.listen(PORT, function() {
   logger.info("FLS service listening on: " + PORT)
-  zookeeper.connect()
+  zookeeperClient.connect()
 })
 
 process.on('exit', function() {
