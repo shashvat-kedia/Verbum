@@ -54,6 +54,19 @@ services:
         published: 8000
     depends_on:
       - fanout
+  fls:
+    restart: always
+    build:
+      context: ./notif
+      dockerfile: Dockerfile
+      #deploy:
+      #  mode: replicated
+      #  replicas:
+      ports:
+        - target: 8030
+          published: 8030
+      depends_on:
+        - fanout
 volumes:
   rabbitmqdisc1_data:
     driver: local

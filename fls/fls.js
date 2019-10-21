@@ -98,8 +98,8 @@ function startAMQP() {
 }
 
 function deRegister(isProcessExit) {
-  client.stop(function() {
-    if (isProcessExit) {
+  client.stop(function(err) {
+    if (isProcessExit || err == null) {
       process.exit()
     }
   })
@@ -118,6 +118,7 @@ zookeeperClient.on('connected', function() {
         getData(zookeeperClient, '/config', function(data) {
           logger.info('Config obtained from Zookeeper')
           config = JSON.parse(data)
+          console.log(config)
           client = createEurekaClient(config)
           client.start(function(err) {
             if (err) {
@@ -140,7 +141,12 @@ zookeeperClient.on('disconnected', function() {
 })
 
 app.get('/train/:modelId/:minClients', function(req, res) {
-  var notifServices = client.getInstancesByAppId(config['NOTIFICATION_SERVICE_APP_ID'])
+  serviceURLs = []
+  var notifServices = client.getInstancesByAppId('notif')
+  for (var i = 0; i < notifServices.length; i++) {
+    console.log(notifServices[i])
+    serviceURLs.push(notifServices[i]['ipAddr'] + ':' + notifServices[i]['port']['$'])
+  }
 })
 
 app.listen(PORT, function() {

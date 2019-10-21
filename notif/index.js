@@ -28,30 +28,31 @@ isZookeeperConnected = false
 nodeId = null
 registeredWithEureka = false
 
-const client = new Eureka({
-  instance: {
-    app: 'notif',
-    instanceId: 'notif-1',
-    hostName: 'localhost',
-    ipAddr: '127.0.0.1',
-    port: {
-      '$': PORT,
-      '@enabled': true
+function getEurekaClient(config) {
+  return new Eureka({
+    instance: {
+      app: 'notif',
+      instanceId: 'notif-1',
+      hostName: 'localhost',
+      ipAddr: '127.0.0.1',
+      port: {
+        '$': PORT,
+        '@enabled': true
+      },
+      vipAddress: 'notifvip',
+      dataCenterInfo: {
+        '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
+        name: 'MyOwn'
+      },
+      registerWithEureka: true
     },
-    vipAddress: 'notifvip',
-    dataCenterInfo: {
-      '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
-      name: 'MyOwn'
-    },
-    registerWithEureka: true
-  },
-  eureka: {
-    host: config['EUREKA_HOST'],
-    port: config['EUREKA_PORT'],
-    servicePath: '/eureka/apps/'
-  }
-})
-client.logger.level('debug')
+    eureka: {
+      host: config['EUREKA_HOST'],
+      port: config['EUREKA_PORT'],
+      servicePath: '/eureka/apps/'
+    }
+  })
+}
 
 function getData(client, path, done) {
   client.getData(path, function(event) {
@@ -105,6 +106,7 @@ zookeeperClient.on('connected', function() {
             })
           }
         })
+        client = getEurekaClient(config)
         client.start(function(err) {
           if (err) {
             throw err
