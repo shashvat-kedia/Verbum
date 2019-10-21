@@ -19,8 +19,33 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'combined.log' })
   ]
 })
+const Eureka = require('eureka-js-client').Eureka;
 const config = null;
 const app = express()
+
+const client = new Eureka({
+  instance: {
+    app: 'fls',
+    instanceId: 'fls-1',
+    hostName: 'localhost',
+    ipAddr: '127.0.0.1',
+    port: {
+      '$': PORT,
+      '@enabled': true
+    },
+    vipAddress: 'notifvip',
+    dataCenterInfo: {
+      '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
+      name: 'MyOwn'
+    },
+    registerWithEureka: true
+  },
+  eureka: {
+    host: 'localhost',
+    port: 8761,
+    servicePath: '/eureka/apps/'
+  }
+})
 
 const PORT = 8080 || process.env.PORT
 
@@ -70,6 +95,14 @@ function startAMQP() {
   })
 }
 
+function deRegister(isProcessExit) {
+  client.stop(function() {
+    if (isProcessExit) {
+      process.exit()
+    }
+  })
+}
+
 zookeeperClient.on('connected', function() {
   if (config == null) {
     zookeeperClient.exists('/config', function(err, stat) {
@@ -83,6 +116,11 @@ zookeeperClient.on('connected', function() {
         getData(zookeeperClient, './config', function(data) {
           logger.info('Config obtained from Zookeeper')
           config = JSON.parse(data)
+          client.start(function(err) {
+            if (err) {
+              throw err
+            }
+          })
           startAMQP()
         })
       }
@@ -105,4 +143,12 @@ app.get('/train/:modelId/:minClients', function(req, res) {
 app.listen(PORT, function() {
   logger.info("FLS service listening on: " + PORT)
   zookeeper.connect()
+})
+
+process.on('exit', function() {
+  deRegister(true)
+})
+
+process.on('SIGINT', function() {
+  deRegister(true)
 })
