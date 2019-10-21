@@ -7,7 +7,7 @@ services:
       - target: 2181
         published: 2181
   rabbitmq:
-    image: bitnami/rabbitmq:latest
+    image: bitnami/rabbitmq
     environment:
       - RABBITMQ_NODE_TYPE=queue-disc
       - RABBITMQ_NODE_NAME=rabbit@queue-disc1
@@ -62,11 +62,11 @@ services:
       #deploy:
       #  mode: replicated
       #  replicas:
-      ports:
-        - target: 8030
-          published: 8030
-      depends_on:
-        - fanout
+    ports:
+      - target: 8030
+        published: 8030
+    depends_on:
+      - fanout
 volumes:
   rabbitmqdisc1_data:
     driver: local

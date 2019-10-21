@@ -98,8 +98,8 @@ function startAMQP() {
 }
 
 function deRegister(isProcessExit) {
-  client.stop(function(err) {
-    if (isProcessExit || err == null) {
+  client.stop(function() {
+    if (isProcessExit) {
       process.exit()
     }
   })
