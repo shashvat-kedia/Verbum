@@ -10,6 +10,15 @@ const zookeeperClient = zookeeperClient.createClient('localhost:2181', {
   spinDelay: 1000,
   retries: 1
 });
+const winston = require('winston');
+const logger = winston.createLogger({
+  format: winston.format.json(),
+  defaultMeta: { service: 'fls-service' },
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+})
 const config = null;
 const app = express()
 
@@ -55,7 +64,7 @@ function startAMQP() {
   amqp.connect(config['RMQ_URL'], function(err, amqpConnection) {
     if (err) {
       console.error(err)
-      process.exit(1)
+      return
     }
     startPublisher(amqpConnection)
   })
@@ -70,11 +79,11 @@ zookeeperClient.on('connected', function() {
       }
       if (stat) {
         isConnectedToZookeeper = true
-        console.log('Connected to Zookeeper')
+        logger.info('Connected to Zookeeper')
         getData(zookeeperClient, './config', function(data) {
-          console.log('Config obtained from Zookeeper')
+          logger.info('Config obtained from Zookeeper')
           config = JSON.parse(data)
-          //startAMQP()
+          startAMQP()
         })
       }
       else {
@@ -85,11 +94,15 @@ zookeeperClient.on('connected', function() {
   }
 })
 
+zookeeperClient.on('disconnected', function() {
+  isConnectedToZookeeper = false
+})
+
 app.get('/train/:modelId/:minClients', function(req, res) {
 
 })
 
 app.listen(PORT, function() {
-  console.log("FLS service listening on: " + PORT)
+  logger.info("FLS service listening on: " + PORT)
   zookeeper.connect()
 })
