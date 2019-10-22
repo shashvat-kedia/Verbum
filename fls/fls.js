@@ -24,6 +24,7 @@ const Eureka = require('eureka-js-client').Eureka;
 const app = express()
 const grpc = require('grpc');
 const notifServiceProto = grpc.load('../proto/notif.proto');
+const gcpDatastore = require('./gcp_datastore.js');
 
 const PORT = 8030 || process.env.PORT;
 
@@ -280,7 +281,15 @@ app.get('/train/:modelId/:minClients', function(req, res) {
       })
     }
     else {
-
+      var trainingSession = {
+        modelId: modelId,
+        participantClients: acceptedClients,
+        createdAt: Date.now()
+      }
+      res.status(200).json({
+        message: 'training started',
+        trainingSession: trainingSession
+      })
     }
   }).fail(function(err) {
     console.error(err)
