@@ -124,6 +124,19 @@ function getData(client, path, done) {
   })
 }
 
+function partitionClientsByInstanceId(clients) {
+  clientPartitions = {}
+  for (var client in clients) {
+    if (clientPartitions[client['notifIns']] != null) {
+      clientPartitions[client['notifIns']].push(client)
+    }
+    else {
+      clientPartitions[client['notifIns']] = [client]
+    }
+  }
+  return clientPartitions
+}
+
 function startAMQP() {
   amqp.connect(config['RMQ_URL'], function(err, amqpConnection) {
     if (err) {
@@ -183,7 +196,7 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
   allSetteledPromise.then(function(responses) {
     var acceptedClients = []
     var leftOut = []
-    var minLeftOut = 99999
+    var minLeftOut = Number.MAX_SAFE_INTEGER
     for (var i = 0; i < responses.length; i++) {
       if (acceptedClients.length < minClients) {
         if (responses[i].length > avgNoClients) {
@@ -204,7 +217,7 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
     }
     //Can still result in an infinite loop need to break wehn leftOut for all responses == 0
     while (acceptedClients.length < minClients) {
-      var temp = 9999
+      var temp = Number.MAX_SAFE_INTEGER
       for (var i = 0; i < leftOuts.length; i++) {
         var oldClientNo = leftOuts[i]['clientNo']
         var newClientNo = oldClientNo + minLeftOut
@@ -229,28 +242,28 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
   return deferred.promise
 }
 
-//Still have to figure out weather opening grpcClient with different URL's kills 
-//the previously made RPC's as grpc works over HTTP which in turn works over HTTP
-
 app.get('/train/:modelId/:minClients', function(req, res) {
   serviceURLs = []
   serviceRequestPromises = []
   var notifServices = client.getInstancesByAppId('notif')
   for (var i = 0; i < notifServices.length; i++) {
-    serviceURLs.push(notifServices[i]['ipAddr'] + ':' + notifServices[i]['port']['$'])
+    serviceURLs.push({
+      serviceURL: notifServices[i]['ipAddr'] + ':' + '5001',
+      instanceeId: notifServicesp[i]['instanceId']
+    })
   }
   for (var serviceURL in serviceURLs) {
-    serviceRequestPromises.push(getActiveClientList(serviceURL, modelId))
+    serviceRequestPromises.push(getActiveClientList(serviceURL['serviceURL'], modelId))
   }
   var avgNoClients = Math.max(1, Math.floor(minClients / servieURLs.length))
   evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients).then(function(acceptedClients) {
     if (acceptedClients.length < minClients) {
-      // Lock is obtained on the clients when obtaining active client list for each notif service instnce
       var unlockClientPromises = []
+      var clientPartitions = partitionClientsByInstanceId(acceptedClients)
       for (var serviceURL in serviceURLs) {
-        //Need to partition the acceptedClients list based on instance ids
-        //which will have to be obtaines from eureka service discovery
-        unlockClientPromises.push(unlockClients(serviceURL, acceptedClients))
+        if (clientPartitions[serviceURL['instanceId']] != null) {
+          unlockClientPromises.push(unlockClients(serviceURL['serviceURL'], clientPartitions[serviceURL['instanceId']]))
+        }
       }
       q.allSettled(unlockClientPromises).then(function(responses) {
         var unlocked = true
