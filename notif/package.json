@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/sd1998/IWS#readme",
   "dependencies": {
+    "Q": "^1.0.0",
     "amqplib": "^0.5.5",
     "body-parser": "^1.19.0",
     "cluster": "^0.7.7",

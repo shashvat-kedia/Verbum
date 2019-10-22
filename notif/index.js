@@ -14,10 +14,20 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   retries: 1
 });
 const amqp = require('amqplib');
+const q = require('Q');
 const grpc = require('grpc');
 const ip = require('ip');
 const grpcServer = new grpc.Server();
 const notifServiceProto = grpc.load('../proto/notif.proto');
+const winston = require('winston');
+const logger = winston.createLogger({
+  format: winston.format.json(),
+  defaultMeta: { service: 'notification-service' },
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+})
 var config = null;
 const app = express();
 
@@ -36,7 +46,7 @@ function getEurekaClient(config) {
   return new Eureka({
     instance: {
       app: 'notif',
-      instanceId: 'notif-1',
+      instanceId: nodeId,
       hostName: 'localhost',
       ipAddr: ip.address(),
       port: {
@@ -63,8 +73,8 @@ function getData(client, path, done) {
     getData(client, path, done)
   }, function(err, data, stat) {
     if (err) {
-      console.error(err)
-      return
+      logger.error(err)
+      throw err
     }
     if (stat) {
       done(data.toString('utf8'))
@@ -79,58 +89,20 @@ function cleanup(options, exitCode) {
   if (nodeId != null) {
     zookeeper.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
       if (err) {
-        console.error(err)
-        return
+        logger.error(err)
+        throw err
       }
-      console.log('Service instance zookeeper node removed.')
+      logger.log('Service instance zookeeper node removed.')
     })
   }
 }
 
-function consumer(amqpConnection) {
-  fs.access(constants['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
-    if (err) {
-      console.error(err)
-      getMac.getMac(function(err, macAddress) {
-        if (err) {
-          console.error(err)
-          return
-        }
-        nodeId = uuid(macAddress, constants['UUID_NAMESPACE'])
-        updateZookeeper(nodeId)
-        setupConsumer(amqpConnection, nodeName)
-      })
-    }
-    else {
-      fs.readFile(constants['NODE_NAME_FILE_PATH'], function(err, data) {
-        if (err) {
-          console.error(err)
-        }
-        nodeId = data
-        updateZookeeper(nodeId)
-        setupConsumer(amqpConnection, nodeId)
-      })
-    }
-  })
-}
-
-function updateZookeeper(nodeName) {
-  var nodePath = config['ZOOKEEPER_NODES_PATH'] + '/' + nodeName
-  zookeeperClient.create(nodePath, Buffer.from(nodeName), function(err, path) {
-    if (err) {
-      console.error(err)
-      return
-    }
-    console.log('Zookeeper node created for service instance at: ' + path)
-  })
-}
-
-function setupConsumer(amqpConnection, nodeName) {
+function consumer(amqpConnection, nodeName) {
   var ok = amqpConnection.createChannel(onAMQPConnectionOpen)
   function onAMQPConnectionOpen(err, channel) {
     if (err) {
-      console.error(err)
-      return
+      logger.error(err)
+      return //To be converted to throw err;
     }
     channel.assertQueue(nodeName)
     channel.consume(nodeName, function(message) {
@@ -142,6 +114,18 @@ function setupConsumer(amqpConnection, nodeName) {
   }
 }
 
+function updateZookeeper(nodePath, value) {
+  var deferred = q.defer()
+  zookeeperClient.create(nodePath, Buffer.from(value), function(err, path) {
+    if (err) {
+      deferred.reject(err)
+    }
+    logger.log('Zookeeper updated at path: ' + path)
+    deferred.resolve(true)
+  })
+  return deferred.promise
+}
+
 function sendPushNotification(message) {
   for (var clientId in message.clientIds) {
     if (openConnections[clientId] != null) {
@@ -150,20 +134,74 @@ function sendPushNotification(message) {
   }
 }
 
+function generateNodeId() {
+  var deferred = q.defer()
+  fs.access(constants['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
+    if (err) {
+      logger.error(err)
+      getMac.getMac(function(err, macAddress) {
+        if (err) {
+          deferred.reject(err)
+        }
+        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, nodeId).then(function(_) {
+          deferred.resolve(uuid(macAddress, constants['UUID_NAMESPACE']))
+        }).fail(function(err) {
+          deferres.reject(err)
+        })
+      })
+    }
+    else {
+      fs.readFile(constants['NODE_NAME_FILE_PATH'], function(err, data) {
+        if (err) {
+          deferred.reject(err)
+        }
+        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, nodeId).then(function(_) {
+          deferred.resolve(data)
+        }).fail(function(err) {
+          deferred.reject(err)
+        })
+      })
+    }
+  })
+  return deferred.promise
+}
+
+function connectToServices() {
+  startEurekaClient()
+  startGrpcServer()
+  connectToRMQ()
+}
+
+function startEurekaClient() {
+  client = getEurekaClient(config)
+  client.start(function(err) {
+    if (err) {
+      throw err
+    }
+    logger.log('Registered with Eureka')
+    registeredWithEureka = true
+  })
+}
+
+function startGrpcServer() {
+  grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
+  grpcServer.start()
+}
+
 function connectToRMQ() {
   amqp.connect(config['RMQ_URL'], function(err, amqpConnection) {
     if (err) {
-      console.error(err)
+      logge.error(err)
       process.exit(1)
     }
-    consumer(amqpConnection)
+    consumer(amqpConnection, nodeId)
   })
 }
 
 function deRegister(isProcessExit) {
   if (registeredWithEureka) {
     client.stop(function() {
-      console.log('Service stopped')
+      logger.log('Service stopped')
       if (isProcessExit) {
         process.exit()
       }
@@ -197,64 +235,60 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
 })
 
 zookeeperClient.on('connected', function() {
-  console.log("Connected to zookeeper")
+  logger.log("Connected to zookeeper")
   zookeeperClient.exists('/config', function(err, stat) {
     if (err) {
-      console.error(err)
-      process.exit(1)
+      logger.error(err)
+      throw err
     }
     if (stat) {
       getData(zookeeperClient, '/config', function(data) {
         if (err) {
-          console.error(err)
-          return
+          logger.error(err)
+          throw err
         }
         config = JSON.parse(data)
         zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
           if (err) {
-            console.error(err)
-            return
+            logger.error(err)
+            throw err
           }
           if (stat) {
-            isZookeeperConnected = true
-            console.log('Connected to zookeeper')
+            generateNodeId().then(function(instanceId) {
+              nodeId = instanceId
+              connectToServices()
+            }).fail(function(err) {
+              throw err
+            })
           }
           else {
             zookeeperClient.mkdirp(config['ZOOKEEPER_NODES_PATH'], function(err, path) {
               if (err) {
-                console.error(err)
-                return
+                logger.error(err)
+                throw err
               }
-              console.log('Zookeeper node created at: ' + path)
-              isZookeeperConnected = true
-              console.log('Connected to zookeeper')
+              generateNodeId().then(function(instanceId) {
+                nodeId = instanceId
+                connectToServices()
+              }).fail(function(err) {
+                logger.error(err)
+                throw err
+              })
             })
           }
         })
-        client = getEurekaClient(config)
-        client.start(function(err) {
-          if (err) {
-            throw err
-          }
-          console.log('Registered with Eureka')
-          registeredWithEureka = true
-          console.log(client.getInstancesByAppId('notif'))
-        })
-        grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
-        grpcServer.start()
-        connectToRMQ()
       })
     }
     else {
-      console.error("Config not preseent on zookeeper")
-      //process.exit(1)
+      logger.error("Config not present on zookeeper")
+      process.exit(1)
     }
   })
 })
 
 zookeeperClient.on('disconnected', function() {
   isZookeeperConnected = false
-  console.log('Discoonnected from zookeeper')
+  logger.log('Disconnected from zookeeper')
 })
 
 io.on('connection', (socket) => {
@@ -269,8 +303,8 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, function() {
   zookeeperClient.connect()
-  console.log("Listening on: " + PORT)
-  console.log("Host IP address: " + ip.aaddress())
+  logger.log("Listening on: " + PORT)
+  logger.log("Host IP address: " + ip.aaddress())
 });
 
 process.on('exit', function() {
