@@ -18,6 +18,7 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'combined.log' })
   ]
 })
+const ip = require('ip');
 const q = require('q');
 const Eureka = require('eureka-js-client').Eureka;
 const app = express()
@@ -40,7 +41,7 @@ function createEurekaClient(config) {
       app: 'fls',
       instanceId: 'fls-1',
       hostName: 'localhost',
-      ipAddr: '127.0.0.1',
+      ipAddr: ip.address(),
       port: {
         '$': PORT,
         '@enabled': true

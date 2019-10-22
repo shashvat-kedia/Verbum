@@ -38,7 +38,7 @@ function getEurekaClient(config) {
       app: 'notif',
       instanceId: 'notif-1',
       hostName: 'localhost',
-      ipAddr: '127.0.0.1',
+      ipAddr: ip.address(),
       port: {
         '$': PORT,
         '@enabled': true
