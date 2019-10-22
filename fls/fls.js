@@ -25,6 +25,7 @@ const app = express()
 const grpc = require('grpc');
 const notifServiceProto = grpc.load('../proto/notif.proto');
 const gcpDatastore = require('./gcp_datastore.js');
+const gcpConfig = require('./gcp_config.js');
 
 const PORT = 8030 || process.env.PORT;
 
@@ -286,10 +287,18 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         participantClients: acceptedClients,
         createdAt: Date.now()
       }
-      res.status(200).json({
-        message: 'training started',
-        trainingSession: trainingSession
-      })
+      var datastore = gcpDatastore.getDatastore(gcpConfig.GCP_CONFIG)
+      gcpDatastore.put(datastore,
+        'model-training/' + modelId + '/' + trainingSession['createdAt'],
+        trainingSession).then(function(_) {
+          logger.info('Training session info stored on GCP datastore')
+          res.status(200).json({
+            message: 'training started',
+            trainingSession: trainingSession
+          })
+        }).fail(function(err) {
+          logger.error(err)
+        })
     }
   }).fail(function(err) {
     console.error(err)
