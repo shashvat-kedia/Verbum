@@ -5,3 +5,4 @@ external/eureka/eurekaservicediscovery/target/
 config.json
 */*.log
 fls/gcp_config.js
+fls/serviceAccount.json
