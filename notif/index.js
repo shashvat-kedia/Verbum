@@ -1,24 +1,10 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const fs = require('fs');
 const server = require('http').createServer();
 const io = require('socket.io')(server, { 'pingInterval': 5000, 'pingTimeout': 15000 });
 const uuid = require('uuid/v3');
-const fs = require('fs');
 const getMac = require('getmac');
-const zookeeper = require('node-zookeeper-client');
-const Eureka = require('eureka-js-client').Eureka;
-const zookeeperClient = zookeeper.createClient('localhost:2181', {
-  sessionTimeout: 30000,
-  spinDelay: 1000,
-  retries: 1
-});
-const amqp = require('amqplib');
-const q = require('Q');
-const grpc = require('grpc');
 const ip = require('ip');
-const grpcServer = new grpc.Server();
-const notifServiceProto = grpc.load('../proto/notif.proto');
+const q = require('Q');
 const winston = require('winston');
 const logger = winston.createLogger({
   format: winston.format.json(),
@@ -28,19 +14,26 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'combined.log' })
   ]
 })
-var config = null;
-const app = express();
+const Eureka = require('eureka-js-client').Eureka;
+const zookeeper = require('node-zookeeper-client');
+const zookeeperClient = zookeeper.createClient('localhost:2181', {
+  sessionTimeout: 30000,
+  spinDelay: 1000,
+  retries: 1
+});
+const amqp = require('amqplib');
+const grpc = require('grpc');
+const grpcServer = new grpc.Server();
+const notifServiceProto = grpc.load('../proto/notif.proto');
 
 const PORT = 8000 || process.env.PORT
 
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
-app.use(cors())
+var config = null;
 
-openConnections = {}
-isZookeeperConnected = false
-nodeId = null
-registeredWithEureka = false
+var openConnections = {}
+var isZookeeperConnected = false
+var nodeId = null
+var registeredWithEureka = false
 
 function getEurekaClient(config) {
   return new Eureka({
