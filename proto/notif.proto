@@ -14,5 +14,6 @@ message ModelDetails {
 }
 
 service NotificationService {
-  rpc GetActiveClients(string) returns ClientList; 
+  rpc GetActiveClients(ModelDetails) returns ClientList; 
+  rpc UnlockClients(ClientList) returns bool;
 }

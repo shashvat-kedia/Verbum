@@ -27,6 +27,7 @@
     "express": "^4.17.1",
     "getmac": "^1.4.6",
     "grpc": "^1.23.3",
+    "ip": "^1.1.5",
     "mongod": "^2.0.0",
     "node-zookeeper-client": "^1.1.0",
     "protobufjs": "^6.8.8",

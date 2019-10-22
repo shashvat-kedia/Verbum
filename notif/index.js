@@ -15,6 +15,7 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
 });
 const amqp = require('amqplib');
 const grpc = require('grpc');
+const ip = require('ip');
 const grpcServer = new grpc.Server();
 const notifServiceProto = grpc.load('../proto/notif.proto');
 var config = null;
@@ -30,23 +31,6 @@ openConnections = {}
 isZookeeperConnected = false
 nodeId = null
 registeredWithEureka = false
-
-grpcServer.addService(notifServiceProto.NotificationService.service, {
-  GetActiveClients: function(call, callbacks) {
-    availableClients = []
-    for (var id in openConnections) {
-      if (!openConnections[id]['modelIdLock']) {
-        availableClients.push({
-          socketId: id,
-          notifIns: nodeId
-        })
-        openConnections[id]['modelIdLock'] = true
-        openConnections[id]['modelId'] = call.id
-      }
-    }
-    callback(null, availableClients)
-  }
-})
 
 function getEurekaClient(config) {
   return new Eureka({
@@ -91,62 +75,6 @@ function getData(client, path, done) {
   })
 }
 
-zookeeperClient.on('connected', function() {
-  console.log("Connected to zookeeper")
-  zookeeperClient.exists('/config', function(err, stat) {
-    if (err) {
-      console.error(err)
-      process.exit(1)
-    }
-    if (stat) {
-      getData(zookeeperClient, '/config', function(data) {
-        if (err) {
-          console.error(err)
-          return
-        }
-        config = JSON.parse(data)
-        zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
-          if (err) {
-            console.error(err)
-            return
-          }
-          if (stat) {
-            isZookeeperConnected = true
-            console.log('Connected to zookeeper')
-          }
-          else {
-            zookeeperClient.mkdirp(config['ZOOKEEPER_NODES_PATH'], function(err, path) {
-              if (err) {
-                console.error(err)
-                return
-              }
-              console.log('Zookeeper node created at: ' + path)
-              isZookeeperConnected = true
-              console.log('Connected to zookeeper')
-            })
-          }
-        })
-        client = getEurekaClient(config)
-        client.start(function(err) {
-          if (err) {
-            throw err
-          }
-          console.log('Registered with Eureka')
-          registeredWithEureka = true
-          console.log(client.getInstancesByAppId('notif'))
-        })
-        grpcServer.bind('127.0.0.1:5001', grpc.ServerCredentials.createInsecure())
-        grpcServer.start()
-        connectToRMQ()
-      })
-    }
-    else {
-      console.error("Config not preseent on zookeeper")
-      //process.exit(1)
-    }
-  })
-})
-
 function cleanup(options, exitCode) {
   if (nodeId != null) {
     zookeeper.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
@@ -158,11 +86,6 @@ function cleanup(options, exitCode) {
     })
   }
 }
-
-zookeeperClient.on('disconnected', function() {
-  isZookeeperConnected = false
-  console.log('Discoonnected from zookeeper')
-})
 
 function consumer(amqpConnection) {
   fs.access(constants['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
@@ -248,6 +171,92 @@ function deRegister(isProcessExit) {
   }
 }
 
+grpcServer.addService(notifServiceProto.NotificationService.service, {
+  GetActiveClients: function(call, callbacks) {
+    availableClients = []
+    for (var id in openConnections) {
+      if (!openConnections[id]['modelIdLock']) {
+        availableClients.push({
+          socketId: id,
+          notifIns: nodeId
+        })
+        openConnections[id]['modelIdLock'] = true
+        openConnections[id]['modelId'] = call.id
+      }
+    }
+    callback(null, availableClients)
+  },
+  UnlockClients: function(call, callbacks) {
+    for (var client in call.clients) {
+      var id = client['socketId']
+      openConnections[id]['modelIdLock'] = false
+      openConnections[id]['modelId'] = null
+    }
+    callbacks(null, true)
+  }
+})
+
+zookeeperClient.on('connected', function() {
+  console.log("Connected to zookeeper")
+  zookeeperClient.exists('/config', function(err, stat) {
+    if (err) {
+      console.error(err)
+      process.exit(1)
+    }
+    if (stat) {
+      getData(zookeeperClient, '/config', function(data) {
+        if (err) {
+          console.error(err)
+          return
+        }
+        config = JSON.parse(data)
+        zookeeperClient.exists(config['ZOOKEEPER_NODES_PATH'], function(err, stat) {
+          if (err) {
+            console.error(err)
+            return
+          }
+          if (stat) {
+            isZookeeperConnected = true
+            console.log('Connected to zookeeper')
+          }
+          else {
+            zookeeperClient.mkdirp(config['ZOOKEEPER_NODES_PATH'], function(err, path) {
+              if (err) {
+                console.error(err)
+                return
+              }
+              console.log('Zookeeper node created at: ' + path)
+              isZookeeperConnected = true
+              console.log('Connected to zookeeper')
+            })
+          }
+        })
+        client = getEurekaClient(config)
+        client.start(function(err) {
+          if (err) {
+            throw err
+          }
+          console.log('Registered with Eureka')
+          registeredWithEureka = true
+          console.log(client.getInstancesByAppId('notif'))
+        })
+        grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
+        grpcServer.start()
+        connectToRMQ()
+      })
+    }
+    else {
+      console.error("Config not preseent on zookeeper")
+      //process.exit(1)
+    }
+  })
+})
+
+zookeeperClient.on('disconnected', function() {
+  isZookeeperConnected = false
+  console.log('Discoonnected from zookeeper')
+})
+
 io.on('connection', (socket) => {
   if (socket['id'] != null && openConnections[socketId] == null) {
     openConnections[socket['id']] = {
@@ -261,6 +270,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, function() {
   zookeeperClient.connect()
   console.log("Listening on: " + PORT)
+  console.log("Host IP address: " + ip.aaddress())
 });
 
 process.on('exit', function() {
