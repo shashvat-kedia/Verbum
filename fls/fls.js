@@ -217,7 +217,6 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
         }
       }
     }
-    //Can still result in an infinite loop need to break wehn leftOut for all responses == 0
     while (acceptedClients.length < minClients) {
       var temp = Number.MAX_SAFE_INTEGER
       for (var i = 0; i < leftOuts.length; i++) {
@@ -235,7 +234,10 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
           }
         }
       }
-      minLeftOut = temps
+      if (temp == 0) {
+        break
+      }
+      minLeftOut = temp
     }
     deferred.resolve(acceptedClients)
   }).fail(function(err) {
