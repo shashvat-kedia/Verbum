@@ -5,8 +5,12 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   spinDelay: 1000,
   retries: 1
 });
+const { PubSub } = require('@google-cloud/pubsub');
+const gcpConfig = require('./gcp_config.js');
 
 var config = null
+var pubSub = null
+var subscriptions = []
 var publisherChannel = null;
 var pendingQueueAssertions = [];
 var pendingPublishMessages = [];

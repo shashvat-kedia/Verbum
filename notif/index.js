@@ -21,12 +21,11 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   spinDelay: 1000,
   retries: 1
 });
-const amqp = require('amqplib');
+const { PubSub } = require("@google-cloud/pubsub");
+const gcpConfig = require("./gcp_config.js");
 const grpc = require('grpc');
 const grpcServer = new grpc.Server();
 const notifServiceProto = grpc.load('../proto/notif.proto');
-
-//Shift froom RabbitMQ to GCP Cloud PubSub
 
 const PORT = 8000 || process.env.PORT
 
@@ -36,6 +35,8 @@ var openConnections = {}
 var isZookeeperConnected = false
 var nodeId = null
 var registeredWithEureka = false
+var pubSub = null
+var subscription = null
 
 function getEurekaClient(config) {
   return new Eureka({
@@ -88,23 +89,6 @@ function cleanup(options, exitCode) {
         throw err
       }
       logger.log('Service instance zookeeper node removed.')
-    })
-  }
-}
-
-function consumer(amqpConnection, nodeName) {
-  var ok = amqpConnection.createChannel(onAMQPConnectionOpen)
-  function onAMQPConnectionOpen(err, channel) {
-    if (err) {
-      logger.error(err)
-      return //To be converted to throw err;
-    }
-    channel.assertQueue(nodeName)
-    channel.consume(nodeName, function(message) {
-      if (message != null) {
-        sendPushNotification(JSON.parse(message.content.toString('utf8')))
-        channel.ack(message)
-      }
     })
   }
 }
@@ -165,6 +149,18 @@ function connectToServices() {
   startEurekaClient()
   startGrpcServer()
   connectToRMQ()
+  setupSubscriber()
+}
+
+function setupSubscriber() {
+  pubSub = new PubSub(gcpConfig.GCP_CONFIG)
+  subscription = pubSub.subscription(nodeId)
+  subscription.on('message', function(message) {
+    if (message != null) {
+      sendPushNotification(message.data)
+      message.ack()
+    }
+  })
 }
 
 function startEurekaClient() {
@@ -181,16 +177,6 @@ function startEurekaClient() {
 function startGrpcServer() {
   grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
   grpcServer.start()
-}
-
-function connectToRMQ() {
-  amqp.connect(config['RMQ_URL'], function(err, amqpConnection) {
-    if (err) {
-      logge.error(err)
-      process.exit(1)
-    }
-    consumer(amqpConnection, nodeId)
-  })
 }
 
 function deRegister(isProcessExit) {
