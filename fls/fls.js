@@ -18,14 +18,19 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'combined.log' })
   ]
 })
+const Multer = require('multer');
+const multer = Multer({
+  storage: Multer.MemoryStorage
+})
 const ip = require('ip');
 const q = require('q');
+const uuidd = require('uuid/v3');
 const Eureka = require('eureka-js-client').Eureka;
 const app = express()
 const grpc = require('grpc');
 const notifServiceProto = grpc.load('../proto/notif.proto');
 const gcpDatastore = require('./gcp_datastore.js');
-const gcpConfig = require('./gcp_config.js');
+const gcpStorage = require('./gcp_storage.js');
 
 const PORT = 8030 || process.env.PORT;
 
@@ -82,6 +87,60 @@ function getActiveClientList(serviceURL, modelId) {
   return deferred.promise
 }
 
+function evenlyDistributeClients(allSetteledPromise, avgClients) {
+  var deferred = q.defer()
+  var avgNoClients = avgClients
+  allSetteledPromise.then(function(responses) {
+    var acceptedClients = []
+    var leftOut = []
+    var minLeftOut = Number.MAX_SAFE_INTEGER
+    for (var i = 0; i < responses.length; i++) {
+      if (acceptedClients.length < minClients) {
+        if (responses[i].length > avgNoClients) {
+          Array.prototype.push(acceptedClients, responses[i].slice(0, avgNoClients))
+          var leftOut = Math.min(0, responses[i].length - avgNoClients)
+          if (leftOut < minLeftOut) {
+            minLeftOut = leftOut
+          }
+          leftOuts.push({
+            index: i,
+            clinetNo: avgNoClients
+          })
+        }
+        else {
+          Array.prototype.push(acceptedClients, responses[i])
+        }
+      }
+    }
+    while (acceptedClients.length < minClients) {
+      var temp = Number.MAX_SAFE_INTEGER
+      for (var i = 0; i < leftOuts.length; i++) {
+        var oldClientNo = leftOuts[i]['clientNo']
+        var newClientNo = oldClientNo + minLeftOut
+        if (nexClientNo > responses[leftOuts[i]['index']].length) {
+          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].slice(leftOuts[i]['clientNo']))
+          leftOuts[i]['clientNo'] = responses[leftOuts[i]['index']].length
+        }
+        else {
+          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].slice(oldClientNo, newClientNo))
+          leftOuts[i]['clientNo'] = newClientNo
+          if (temp < newClientNo) {
+            temp = newClientNo
+          }
+        }
+      }
+      if (temp == 0) {
+        break
+      }
+      minLeftOut = temp
+    }
+    deferred.resolve(acceptedClients)
+  }).fail(function(err) {
+    deferred.reject(err)
+  })
+  return deferred.promise
+}
+
 function unlockClients(serviceURL, clients) {
   var deferred = q.defer()
   var grpcClient = getGrpcClient(serviceURL)
@@ -89,7 +148,7 @@ function unlockClients(serviceURL, clients) {
     clients: clients
   }, function(err, response) {
     if (err) {
-      deferred.reject(eerr)
+      deferred.reject(err)
     }
     grpc.closeClient(grpcClient)
     deferred.resolve(response)
@@ -104,8 +163,8 @@ function startPublisher(amqpConnection) {
       console.error(err)
       process.exit(1)
     }
-    createQueueForNodes(nodePaths)
     publisherChannel = channel
+    publisherChannel.assertQueue(config['FANOUT_QUEUE_TOPIC'])
   }
 }
 
@@ -137,6 +196,15 @@ function partitionClientsByInstanceId(clients) {
     }
   }
   return clientPartitions
+}
+
+function searchForClient(participantClients, clientId) {
+  for (var i = 0; i < participantClients.length; i++) {
+    if (participantClients[i]['socketId'] == clientId) {
+      return i
+    }
+  }
+  return null
 }
 
 function startAMQP() {
@@ -192,60 +260,6 @@ zookeeperClient.on('disconnected', function() {
   isConnectedToZookeeper = false
 })
 
-function evenlyDistributeClients(allSetteledPromise, avgClients) {
-  var deferred = q.defer()
-  var avgNoClients = avgClients
-  allSetteledPromise.then(function(responses) {
-    var acceptedClients = []
-    var leftOut = []
-    var minLeftOut = Number.MAX_SAFE_INTEGER
-    for (var i = 0; i < responses.length; i++) {
-      if (acceptedClients.length < minClients) {
-        if (responses[i].length > avgNoClients) {
-          Array.prototype.push(acceptedClients, responses[i].slice(0, avgNoClients))
-          var leftOut = Math.min(0, responses[i].length - avgNoClients)
-          if (leftOut < minLeftOut) {
-            minLeftOut = leftOut
-          }
-          leftOuts.push({
-            index: i,
-            clinetNo: avgNoClients
-          })
-        }
-        else {
-          Array.prototype.push(acceptedClients, responses[i])
-        }
-      }
-    }
-    while (acceptedClients.length < minClients) {
-      var temp = Number.MAX_SAFE_INTEGER
-      for (var i = 0; i < leftOuts.length; i++) {
-        var oldClientNo = leftOuts[i]['clientNo']
-        var newClientNo = oldClientNo + minLeftOut
-        if (nexClientNo > responses[leftOuts[i]['index']].length) {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].slice(leftOuts[i]['clientNo']))
-          leftOuts[i]['clientNo'] = responses[leftOuts[i]['index']].length
-        }
-        else {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].slice(oldClientNo, newClientNo))
-          leftOuts[i]['clientNo'] = newClientNo
-          if (temp < newClientNo) {
-            temp = newClientNo
-          }
-        }
-      }
-      if (temp == 0) {
-        break
-      }
-      minLeftOut = temp
-    }
-    deferred.resolve(acceptedClients)
-  }).fail(function(err) {
-    deferred.reject(err)
-  })
-  return deferred.promise
-}
-
 app.get('/train/:modelId/:minClients', function(req, res) {
   serviceURLs = []
   serviceRequestPromises = []
@@ -257,7 +271,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
     })
   }
   for (var serviceURL in serviceURLs) {
-    serviceRequestPromises.push(getActiveClientList(serviceURL['serviceURL'], modelId))
+    serviceRequestPromises.push(getActiveClientList(serviceURL['serviceURL'], req.params.modelId))
   }
   var avgNoClients = Math.max(1, Math.floor(minClients / servieURLs.length))
   evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients).then(function(acceptedClients) {
@@ -276,7 +290,8 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         }
         console.log('Clients: ' + unlocked)
         res.status(204).json({
-          message: 'minimum clients criteria cannot be fullfilled'
+          message: 'minimum clients criteria cannot be fullfilled',
+          availableClients: acceptedClients.length
         })
       }).fail(function(err) {
         console.error(err)
@@ -285,13 +300,13 @@ app.get('/train/:modelId/:minClients', function(req, res) {
     }
     else {
       var trainingSession = {
-        modelId: modelId,
+        modelId: req.params.modelId,
         participantClients: acceptedClients,
         createdAt: Date.now()
       }
-      var datastore = gcpDatastore.getDatastore(gcpConfig.GCP_CONFIG)
+      trainingSession['sessionId'] = uuid(trainingSession['createdAat'], config['UUID_NAMESPACE'])
       gcpDatastore.put(datastore,
-        'model-training/' + modelId + '/' + trainingSession['createdAt'],
+        'model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
         trainingSession).then(function(_) {
           logger.info('Training session info stored on GCP datastore')
           res.status(200).json({
@@ -307,6 +322,57 @@ app.get('/train/:modelId/:minClients', function(req, res) {
     logger.error(err)
   })
 })
+
+//Where to save the gradients? (String serialized format .txt file)
+//Currently expect gradients to be a large string attribute in JSON
+app.post('/grads/:modelId/:sessionId/:socketId',
+  multer.any(),
+  gcpStorage.UPLOAD_TO_GCS_MIDDLEWARE,
+  function(req, res) {
+    gcpDatastore.get('model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(value) {
+      var trainingSession = value //currently entity
+      var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
+      if (index != null && req.file && req.file.cloudStoragePublicURL) {
+        trainingSession['participantClients'][index]['gradientPath'] = req.file.cloudStoragePublicURL
+        trainingSession['participantClients'][index]['gradSubTime'] = Date.now()
+        gcpDatastore.updateAndGet('model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(data) {
+          // prototype will need locking so that multiple service instance do not start the training process
+          var gradientPaths = []
+          var clientIds = []
+          for (var participant in data['participantClients']) {
+            if (participant['gradientPath'] != null) {
+              gradientPaths.push(participant['gradientPath'])
+              clientIds.push(participant['socketId'])
+            }
+          }
+          if (gradientPaths.length == data['participantClients'].length) {
+            publisherChannel.sendToQueue(config['FAN_OUT_QUEUE'], Buffer.from(JSON.stringify({
+              gradientPaths: gradientPaths,
+              clientIds: clientIds,
+              createdAt: Date.now()
+            })))
+            res.status(200).json({
+              message: 'Gradient averaging started'
+            })
+          }
+          else {
+            logger.info('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
+          }
+        }).fail(function(err) {
+          console.error(err)
+          logger.error(err)
+        })
+      }
+      else {
+        res.status(404).json({
+          message: 'Not a paritcipant of current training round'
+        })
+      }
+    }).fail(function(err) {
+      console.error(err)
+      logger.error(err)
+    })
+  })
 
 app.listen(PORT, function() {
   logger.info("FLS service listening on: " + PORT)

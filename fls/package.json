@@ -30,6 +30,7 @@
     "grpc": "^1.23.3",
     "ip": "^1.1.5",
     "mongod": "^2.0.0",
+    "multer": "^1.4.2",
     "node-zookeeper-client": "^1.1.0",
     "protobufjs": "^6.8.8",
     "socket-io": "^1.0.0",
