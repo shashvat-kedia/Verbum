@@ -325,9 +325,8 @@ app.get('/train/:modelId/:minClients', function(req, res) {
 
 app.post('/grads/:modelId/:sessionId/:socketId',
   multer.any(),
-  gcpStorage.UPLOAD_TO_GCS_MIDDLEWARE,
-  function(req, res) {
-    if (req.file.cloudStorageError != null) {
+  gcpStorage.UPLOAD_TO_GCS_MIDDLEWARE, function(req, res) {
+    if (req.file != null && req.file.cloudStorageError != null) {
       console.error(req.file.cloudstorageError)
       logger.error(req.file.cloudStorageError)
       res.status(406).json({

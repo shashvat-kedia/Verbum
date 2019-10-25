@@ -67,6 +67,16 @@ services:
         published: 8030
     depends_on:
       - fanout
+  learning:
+    restart: always
+    build:
+      context: ./external/learning
+      dockerfile: Dockerfile
+    ports:
+      - target: 8881
+        published: 8881
+    depends_on:
+      - fls
 volumes:
   rabbitmqdisc1_data:
     driver: local
