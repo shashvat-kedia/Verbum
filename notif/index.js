@@ -88,7 +88,7 @@ function cleanup(options, exitCode) {
         logger.error(err)
         throw err
       }
-      logger.log('Service instance zookeeper node removed.')
+      logger.info('Service instance zookeeper node removed.')
     })
   }
 }
@@ -99,7 +99,7 @@ function updateZookeeper(nodePath, value) {
     if (err) {
       deferred.reject(err)
     }
-    logger.log('Zookeeper updated at path: ' + path)
+    logger.info('Zookeeper updated at path: ' + path)
     deferred.resolve(true)
   })
   return deferred.promise
@@ -122,7 +122,7 @@ function generateNodeId() {
         if (err) {
           deferred.reject(err)
         }
-        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, nodeId).then(function(_) {
+        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, macAddress).then(function(_) {
           deferred.resolve(uuid(macAddress, config['UUID_NAMESPACE']))
         }).fail(function(err) {
           deferres.reject(err)
@@ -134,7 +134,7 @@ function generateNodeId() {
         if (err) {
           deferred.reject(err)
         }
-        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, nodeId).then(function(_) {
+        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, data).then(function(_) {
           deferred.resolve(data)
         }).fail(function(err) {
           deferred.reject(err)
@@ -169,7 +169,7 @@ function startEurekaClient() {
     if (err) {
       throw err
     }
-    logger.log('Registered with Eureka')
+    logger.info('Registered with Eureka')
     registeredWithEureka = true
   })
 }
@@ -182,7 +182,7 @@ function startGrpcServer() {
 function deRegister(isProcessExit) {
   if (registeredWithEureka) {
     client.stop(function() {
-      logger.log('Service stopped')
+      logger.info('Service stopped')
       if (isProcessExit) {
         process.exit()
       }
@@ -218,7 +218,7 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
 })
 
 zookeeperClient.on('connected', function() {
-  logger.log("Connected to zookeeper")
+  logger.info("Connected to zookeeper")
   zookeeperClient.exists('/config', function(err, stat) {
     if (err) {
       logger.error(err)
@@ -271,7 +271,7 @@ zookeeperClient.on('connected', function() {
 
 zookeeperClient.on('disconnected', function() {
   isZookeeperConnected = false
-  logger.log('Disconnected from zookeeper')
+  logger.info('Disconnected from zookeeper')
 })
 
 io.on('connection', (socket) => {
@@ -286,8 +286,8 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, function() {
   zookeeperClient.connect()
-  logger.log("Listening on: " + PORT)
-  logger.log("Host IP address: " + ip.aaddress())
+  logger.info("Listening on: " + PORT)
+  logger.info("Host IP address: " + ip.address())
 });
 
 process.on('exit', function() {

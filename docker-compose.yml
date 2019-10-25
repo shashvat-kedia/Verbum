@@ -14,21 +14,6 @@ services:
     ports:
       - target: 8761
         published: 8761
-  fanout:
-    restart: always
-    build:
-      context: ./fanout
-      dockerfile: Dockerfile
-    # deploy:
-    #   mode: replicated
-    #   replicas: 3
-    ports:
-      - target: 6001
-        published: 6001
-    depends_on:
-      - zookeeper
-      - rabbitmq
-      - eureka
   notification:
     restart: always
     build:
@@ -41,7 +26,8 @@ services:
       - target: 8000
         published: 8000
     depends_on:
-      - fanout
+      - zookeeper
+      - eureka
   fls:
     restart: always
     build:
@@ -54,7 +40,7 @@ services:
       - target: 8030
         published: 8030
     depends_on:
-      - fanout
+      - notification
   learning:
     restart: always
     build:

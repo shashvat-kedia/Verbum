@@ -2,7 +2,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const grpc = require('grpc');
-const amqp = require('amqplib');
 const zookeeper = require('node-zookeeper-client');
 const zookeeperClient = zookeeper.createClient('localhost:2181', {
   sessionTimeout: 30000,
@@ -26,6 +25,8 @@ const ip = require('ip');
 const q = require('q');
 const uuid = require('uuid/v3');
 const Eureka = require('eureka-js-client').Eureka;
+const { PubSub } = require('@google-cloud/pubsub');
+const gcpConfig = require('./gcp_config.js');
 const app = express();
 const notifServiceProto = grpc.load('../proto/notif.proto');
 const gcpDatastore = require('./gcp_datastore.js');
@@ -38,7 +39,7 @@ app.use(bodyParser.json())
 app.use(cors())
 
 var config = null;
-var publisherChannel = null;
+var pubSub = null;
 var isConnectedToZookeeper = false;
 
 function createEurekaClient(config) {
@@ -155,16 +156,14 @@ function unlockClients(serviceURL, clients) {
   return deferres.promise
 }
 
-function startPublisher(amqpConnection) {
-  amqpConnection.createChannel(onPublisherStart);
-  function onPublisherStart(err, channel) {
-    if (err) {
-      console.error(err)
-      process.exit(1)
-    }
-    publisherChannel = channel
-    publisherChannel.assertQueue(config['FANOUT_QUEUE_TOPIC'])
-  }
+function publish(topicName, data) {
+  var deferred = q.defer()
+  pubSub.topic(topicName).publisher().publish(data).then(function(messageId) {
+    deferred.resolve(messageId)
+  }).fail(function(err) {
+    deferred.reject(err)
+  })
+  return deferred.promise
 }
 
 function getData(client, path, done) {
@@ -206,16 +205,6 @@ function searchForClient(participantClients, clientId) {
   return null
 }
 
-function startAMQP() {
-  amqp.connect(config['RMQ_URL'], function(err, amqpConnection) {
-    if (err) {
-      console.error(err)
-      return
-    }
-    startPublisher(amqpConnection)
-  })
-}
-
 function deRegister(isProcessExit) {
   client.stop(function() {
     if (isProcessExit) {
@@ -244,7 +233,7 @@ zookeeperClient.on('connected', function() {
               throw err
             }
           })
-          startAMQP()
+          pubSub = new PubSub(gcpConfig.GCP_CONFIG)
         })
       }
       else {
@@ -366,13 +355,17 @@ app.post('/grads/:modelId/:sessionId/:socketId',
               }
             }
             if (gradientPaths.length == currentValue['participantClients'].length) {
-              publisherChannel.sendToQueue(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
+              publish(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
                 gradientPaths: gradientPaths,
                 clientIds: clientIds,
                 createdAt: Date.now()
-              })))
-              res.status(200).json({
-                message: 'Gradient averaging started'
+              }))).then(function(messsageId) {
+                res.status(200).json({
+                  message: 'Gradient averaging started'
+                })
+              }).fail(function(err) {
+                console.error(err)
+                logger.error(err)
               })
             }
             else {
