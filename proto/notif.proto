@@ -9,11 +9,15 @@ message ClientList {
   repeated Client clients = 1;
 }
 
+message Response {
+  bool successful = 1;
+}
+
 message ModelDetails {
   string id = 1;
 }
 
 service NotificationService {
-  rpc GetActiveClients(ModelDetails) returns ClientList; 
-  rpc UnlockClients(ClientList) returns bool;
+  rpc GetActiveClients(ModelDetails) returns (ClientList); 
+  rpc UnlockClients(ClientList) returns (Response);
 }

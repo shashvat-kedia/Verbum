@@ -1,5 +1,5 @@
-const Datastore = require('@google-cloud/datastore');
-const q = require('Q');
+const { Datastore } = require('@google-cloud/datastore');
+const q = require('q');
 const gcpConfig = require('./gcp_config.js');
 
 const datastore = new Datastore(gcpConfig.GCP_CONFIG)

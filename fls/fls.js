@@ -24,10 +24,9 @@ const multer = Multer({
 })
 const ip = require('ip');
 const q = require('q');
-const uuidd = require('uuid/v3');
+const uuid = require('uuid/v3');
 const Eureka = require('eureka-js-client').Eureka;
-const app = express()
-const grpc = require('grpc');
+const app = express();
 const notifServiceProto = grpc.load('../proto/notif.proto');
 const gcpDatastore = require('./gcp_datastore.js');
 const gcpStorage = require('./gcp_storage.js');
@@ -151,7 +150,7 @@ function unlockClients(serviceURL, clients) {
       deferred.reject(err)
     }
     grpc.closeClient(grpcClient)
-    deferred.resolve(response)
+    deferred.resolve(response['successful'])
   })
   return deferres.promise
 }
@@ -267,7 +266,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
   for (var i = 0; i < notifServices.length; i++) {
     serviceURLs.push({
       serviceURL: notifServices[i]['ipAddr'] + ':' + '5001',
-      instanceeId: notifServicesp[i]['instanceId']
+      instanceId: notifServicesp[i]['instanceId']
     })
   }
   for (var serviceURL in serviceURLs) {
@@ -352,43 +351,70 @@ app.post('/grads/:modelId/:sessionId/:socketId',
           }
           return deferred.promise
         })
-      gcpDatastore.executeTransactionWithRetry(getAndUpdatePromise, 2).then(function(currentValue) {
-        if (currentValue['status'] != null && currentValue['status'] != 200) {
-          res.status(currentValue['status']).json(currentValue)
-        }
-        else {
-          var gradientPaths = []
-          var clientIds = []
-          for (var participant in currentValue['participantClients']) {
-            if (participant['gradientPath'] != null) {
-              gradientPaths.push(participant['gradientPath'])
-              clientIds.push(participant['socketId'])
-            }
-          }
-          if (gradientPaths.length == currentValue['participantClients'].length) {
-            publisherChannel.sendToQueue(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
-              gradientPaths: gradientPaths,
-              clientIds: clientIds,
-              createdAt: Date.now()
-            })))
-            res.status(200).json({
-              message: 'Gradient averaging started'
-            })
+      gcpDatastore.executeTransactionWithRetry(getAndUpdatePromise,
+        config['FLS_SERVICE_MAX_RETRIES']).then(function(currentValue) {
+          if (currentValue['status'] != null && currentValue['status'] != 200) {
+            res.status(currentValue['status']).json(currentValue)
           }
           else {
-            console.log('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
-            logger.info('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
-            res.status(200).json({
-              message: 'Gradients saved. Waiting for other clients.'
-            })
+            var gradientPaths = []
+            var clientIds = []
+            for (var participant in currentValue['participantClients']) {
+              if (participant['gradientPath'] != null) {
+                gradientPaths.push(participant['gradientPath'])
+                clientIds.push(participant['socketId'])
+              }
+            }
+            if (gradientPaths.length == currentValue['participantClients'].length) {
+              publisherChannel.sendToQueue(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
+                gradientPaths: gradientPaths,
+                clientIds: clientIds,
+                createdAt: Date.now()
+              })))
+              res.status(200).json({
+                message: 'Gradient averaging started'
+              })
+            }
+            else {
+              console.log('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
+              logger.info('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
+              res.status(200).json({
+                message: 'Gradients saved. Waiting for other clients.'
+              })
+            }
           }
-        }
-      }).fail(function(err) {
-        console.error(err)
-        logger.error(err)
-      })
+        }).fail(function(err) {
+          console.error(err)
+          logger.error(err)
+        })
     }
   })
+
+app.get('/global/:modelId/:sessionId/:socketId', function(req, res) {
+  gcpStorage.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(data) {
+    var trainingSession = data
+    if (trainingSession['globalModelCheckpoint'] != null) {
+      var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
+      if (index != null) {
+        trainingSession['participantClients'][index]['globalModelCheckoutTime'] = Date.now()
+
+      }
+      else {
+        res.status(404).json({
+          message: 'Client not parrt of current training round'
+        })
+      }
+    }
+    else {
+      res.status(200).json({
+        message: 'Model training has not completed yet'
+      })
+    }
+  }).fail(function(err) {
+    console.error(err)
+    logger.error(err)
+  })
+})
 
 app.listen(PORT, function() {
   logger.info("FLS service listening on: " + PORT)

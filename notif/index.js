@@ -4,7 +4,7 @@ const io = require('socket.io')(server, { 'pingInterval': 5000, 'pingTimeout': 1
 const uuid = require('uuid/v3');
 const getMac = require('getmac');
 const ip = require('ip');
-const q = require('Q');
+const q = require('q');
 const winston = require('winston');
 const logger = winston.createLogger({
   format: winston.format.json(),
@@ -25,6 +25,8 @@ const amqp = require('amqplib');
 const grpc = require('grpc');
 const grpcServer = new grpc.Server();
 const notifServiceProto = grpc.load('../proto/notif.proto');
+
+//Shift froom RabbitMQ to GCP Cloud PubSub
 
 const PORT = 8000 || process.env.PORT
 
@@ -223,7 +225,9 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
       openConnections[id]['modelIdLock'] = false
       openConnections[id]['modelId'] = null
     }
-    callbacks(null, true)
+    callbacks(null, {
+      successful: true
+    })
   }
 })
 

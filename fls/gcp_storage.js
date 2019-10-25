@@ -1,8 +1,8 @@
-const Storage = require('@@google-cloud/datastore');
-const q = require('Q');
+const { Storage } = require('@google-cloud/storage');
+const q = require('q');
 const gcpConfig = require('./gcp_config.js');
 
-const storage = new Storage(gcpConfig['GCP_CONFIG']['CREDENTIALS'])
+const storage = new Storage(gcpConfig['GCP_CONFIG'])
 const bucket = storage.bucket(gcpConfig['BUCKET_NAME'])
 
 function uploadToGCSMiddleware(req, res, next) {
