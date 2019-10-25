@@ -10,7 +10,7 @@ function get(key) {
     if (err) {
       deferred.reject(err)
     }
-    deferred.resolve(entity)
+    deferred.resolve(entity['data'])
   })
   return deferred.promise
 }
@@ -64,15 +64,38 @@ function executeTransactionWithRetry(operationPromise, maxRetires) {
   return deferred.promise
 }
 
-function updateAndGet(key, newValue) {
+function getAndUpdate(key, updateOperation) {
   var deferred = q.defer()
   var transaction = datastore.transaction()
-
+  transaction.get(key, function(err, entity) {
+    if (err) {
+      transaction.rollback()
+      deferred.reject(err)
+    }
+    updateOperation(entity['data']).then(function(updatedEntityData) {
+      transaction.upsert({
+        key: entity['key'],
+        data: updatedEntityData
+      }, function(err) {
+        if (err) {
+          transaction.rollback()
+          deferred.reject(err)
+        }
+        deferred.resolve(updatedEntityData)
+        transaction.commit()
+      })
+    }).fail(function(err) {
+      transaction.rollback()
+      deferred.reject(err)
+    })
+  })
+  return deferred.promise
 }
 
 module.exports = {
-  getDatastore: createDatastore,
   get: get,
   put: put,
-  remove: remove
+  remove: remove,
+  executeTransactionWithRetry: executeTransactionWithRetry,
+  getAndUpdate: getAndUpdate
 }

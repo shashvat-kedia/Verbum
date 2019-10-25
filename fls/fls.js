@@ -323,30 +323,51 @@ app.get('/train/:modelId/:minClients', function(req, res) {
   })
 })
 
-//Where to save the gradients? (String serialized format .txt file)
-//Currently expect gradients to be a large string attribute in JSON
 app.post('/grads/:modelId/:sessionId/:socketId',
   multer.any(),
   gcpStorage.UPLOAD_TO_GCS_MIDDLEWARE,
   function(req, res) {
-    gcpDatastore.get('model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(value) {
-      var trainingSession = value //currently entity
-      var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
-      if (index != null && req.file && req.file.cloudStoragePublicURL) {
-        trainingSession['participantClients'][index]['gradientPath'] = req.file.cloudStoragePublicURL
-        trainingSession['participantClients'][index]['gradSubTime'] = Date.now()
-        gcpDatastore.updateAndGet('model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(data) {
-          // prototype will need locking so that multiple service instance do not start the training process
+    if (req.file.cloudStorageError != null) {
+      console.error(req.file.cloudstorageError)
+      logger.error(req.file.cloudStorageError)
+      res.status(406).json({
+        message: 'Gradient file not found'
+      })
+    }
+    else {
+      var getAndUpdatePromise = gcpDatastore.getAndUpdate(
+        '/model-training/' + req.params.modelId + '/' + req.params.sessionId, function(value) {
+          var deferred = q.defer()
+          var trainingSession = value
+          var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
+          if (index != null && req.file && req.file.cloudStoragePublicURL) {
+            trainingSession['participantClients'][index]['gradientPath'] = req.file.cloudStoragePublicURL
+            trainingSession['participantClients'][index]['gradSubTime'] = Date.now()
+            deferred.resolve(trainingSession)
+          }
+          else {
+            deferred.resolve({
+              status: 404,
+              message: 'Not a paritcipant of current training round'
+            })
+          }
+          return deferred.promise
+        })
+      gcpDatastore.executeTransactionWithRetry(getAndUpdatePromise, 2).then(function(currentValue) {
+        if (currentValue['status'] != null && currentValue['status'] != 200) {
+          res.status(currentValue['status']).json(currentValue)
+        }
+        else {
           var gradientPaths = []
           var clientIds = []
-          for (var participant in data['participantClients']) {
+          for (var participant in currentValue['participantClients']) {
             if (participant['gradientPath'] != null) {
               gradientPaths.push(participant['gradientPath'])
               clientIds.push(participant['socketId'])
             }
           }
-          if (gradientPaths.length == data['participantClients'].length) {
-            publisherChannel.sendToQueue(config['FAN_OUT_QUEUE'], Buffer.from(JSON.stringify({
+          if (gradientPaths.length == currentValue['participantClients'].length) {
+            publisherChannel.sendToQueue(config['LEARNING_SERVICE'], Buffer.from(JSON.stringify({
               gradientPaths: gradientPaths,
               clientIds: clientIds,
               createdAt: Date.now()
@@ -356,22 +377,18 @@ app.post('/grads/:modelId/:sessionId/:socketId',
             })
           }
           else {
+            console.log('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
             logger.info('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
+            res.status(200).json({
+              message: 'Gradients saved. Waiting for other clients.'
+            })
           }
-        }).fail(function(err) {
-          console.error(err)
-          logger.error(err)
-        })
-      }
-      else {
-        res.status(404).json({
-          message: 'Not a paritcipant of current training round'
-        })
-      }
-    }).fail(function(err) {
-      console.error(err)
-      logger.error(err)
-    })
+        }
+      }).fail(function(err) {
+        console.error(err)
+        logger.error(err)
+      })
+    }
   })
 
 app.listen(PORT, function() {
