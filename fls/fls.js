@@ -304,7 +304,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         participantClients: acceptedClients,
         createdAt: Date.now()
       }
-      trainingSession['sessionId'] = uuid(trainingSession['createdAat'], config['UUID_NAMESPACE'])
+      trainingSession['sessionId'] = uuid(trainingSession['createdAt'], config['UUID_NAMESPACE'])
       gcpDatastore.put(datastore,
         'model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
         trainingSession).then(function(_) {
@@ -366,7 +366,7 @@ app.post('/grads/:modelId/:sessionId/:socketId',
             }
           }
           if (gradientPaths.length == currentValue['participantClients'].length) {
-            publisherChannel.sendToQueue(config['LEARNING_SERVICE'], Buffer.from(JSON.stringify({
+            publisherChannel.sendToQueue(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
               gradientPaths: gradientPaths,
               clientIds: clientIds,
               createdAt: Date.now()

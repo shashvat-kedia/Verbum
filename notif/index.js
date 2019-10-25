@@ -129,7 +129,7 @@ function sendPushNotification(message) {
 
 function generateNodeId() {
   var deferred = q.defer()
-  fs.access(constants['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
+  fs.access(config['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
     if (err) {
       logger.error(err)
       getMac.getMac(function(err, macAddress) {
@@ -137,14 +137,14 @@ function generateNodeId() {
           deferred.reject(err)
         }
         updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, nodeId).then(function(_) {
-          deferred.resolve(uuid(macAddress, constants['UUID_NAMESPACE']))
+          deferred.resolve(uuid(macAddress, config['UUID_NAMESPACE']))
         }).fail(function(err) {
           deferres.reject(err)
         })
       })
     }
     else {
-      fs.readFile(constants['NODE_NAME_FILE_PATH'], function(err, data) {
+      fs.readFile(config['NODE_NAME_FILE_PATH'], function(err, data) {
         if (err) {
           deferred.reject(err)
         }
