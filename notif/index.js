@@ -83,7 +83,7 @@ function getData(client, path, done) {
 
 function cleanup() {
   if (nodeId != null) {
-    zookeeper.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
+    zookeeperClient.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
       if (err) {
         logger.error(err)
         throw err
@@ -193,6 +193,7 @@ function startGrpcServer() {
 
 function deRegister(isProcessExit) {
   if (registeredWithEureka) {
+    registerWithEureka = false
     client.stop(function() {
       cleanup()
       logger.info('Service stopped')
@@ -308,6 +309,6 @@ process.on('exit', function() {
   deRegister(true)
 })
 
-// process.on('SIGINT', function() {
-//   deRegister(true)
-// }) 
+process.on('SIGINT', function() {
+  deRegister(true)
+}) 
