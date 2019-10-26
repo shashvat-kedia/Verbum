@@ -81,7 +81,7 @@ function getData(client, path, done) {
   })
 }
 
-function cleanup(options, exitCode) {
+function cleanup() {
   if (nodeId != null) {
     zookeeper.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
       if (err) {
@@ -95,12 +95,22 @@ function cleanup(options, exitCode) {
 
 function updateZookeeper(nodePath, value) {
   var deferred = q.defer()
-  zookeeperClient.create(nodePath, Buffer.from(value), function(err, path) {
+  zookeeperClient.exists(nodePath, function(err, stat) {
     if (err) {
       deferred.reject(err)
     }
-    logger.info('Zookeeper updated at path: ' + path)
-    deferred.resolve(true)
+    if (stat) {
+      deferred.resolve(true)
+    }
+    else {
+      zookeeperClient.create(nodePath, Buffer.from(value), function(err, path) {
+        if (err) {
+          deferred.reject(err)
+        }
+        logger.info('Zookeeper updated at path: ' + path)
+        deferred.resolve(true)
+      })
+    }
   })
   return deferred.promise
 }
@@ -115,33 +125,35 @@ function sendPushNotification(message) {
 
 function generateNodeId() {
   var deferred = q.defer()
-  fs.access(config['NODE_NAME_FILE_PATH'], fs.F_OK, (err) => {
-    if (err) {
-      logger.error(err)
-      getMac.getMac(function(err, macAddress) {
-        if (err) {
-          deferred.reject(err)
-        }
-        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, macAddress).then(function(_) {
-          deferred.resolve(uuid(macAddress, config['UUID_NAMESPACE']))
-        }).fail(function(err) {
-          deferres.reject(err)
-        })
+  if (!fs.existsSync(config['NODE_NAME_FILE_PATH'])) {
+    getMac.getMac(function(err, macAddress) {
+      if (err) {
+        deferred.reject(err)
+      }
+      var generatedId = uuid(macAddress, config['UUID_NAMESPACE'])
+      var writeStream = fs.createWriteStream(config['NODE_NAME_FILE_PATH'])
+      writeStream.write(generatedId)
+      writeStream.end()
+      updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + generatedId, generatedId).then(function(_) {
+        deferred.resolve(generatedId)
+      }).fail(function(err) {
+        deferred.reject(err)
       })
-    }
-    else {
-      fs.readFile(config['NODE_NAME_FILE_PATH'], function(err, data) {
-        if (err) {
-          deferred.reject(err)
-        }
-        updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, data).then(function(_) {
-          deferred.resolve(data)
-        }).fail(function(err) {
-          deferred.reject(err)
-        })
+    })
+  }
+  else {
+    fs.readFile(config['NODE_NAME_FILE_PATH'], function(err, data) {
+      if (err) {
+        deferred.reject(err)
+      }
+      var id = data.toString('utf8')
+      updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + id, id).then(function(_) {
+        deferred.resolve(data)
+      }).fail(function(err) {
+        deferred.reject(err)
       })
-    }
-  })
+    })
+  }
   return deferred.promise
 }
 
@@ -182,6 +194,7 @@ function startGrpcServer() {
 function deRegister(isProcessExit) {
   if (registeredWithEureka) {
     client.stop(function() {
+      cleanup()
       logger.info('Service stopped')
       if (isProcessExit) {
         process.exit()
@@ -241,6 +254,7 @@ zookeeperClient.on('connected', function() {
               nodeId = instanceId
               connectToServices()
             }).fail(function(err) {
+              logger.error(err)
               throw err
             })
           }
@@ -294,6 +308,6 @@ process.on('exit', function() {
   deRegister(true)
 })
 
-process.on('SIGINT', function() {
-  deRegister(true)
-}) 
+// process.on('SIGINT', function() {
+//   deRegister(true)
+// }) 
