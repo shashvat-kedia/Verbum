@@ -15,13 +15,44 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LSTMTextGeneration {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LSTMTextGeneration.class);
+
+    private static LSTMTextGeneration lstmTextGeneration;
+    private static MultiLayerNetwork model;
+
+    private final int N_CHARS = 20000;
+    private static final int LSTM_N_OUT = 30;
+    private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890\"\n',.?;()[]{}:!- ";
+
+    public static LSTMTextGeneration getInstance() {
+        if (lstmTextGeneration != null) {
+            synchronized (LSTMTextGeneration.class) {
+                if (lstmTextGeneration != null) {
+                    lstmTextGeneration = new LSTMTextGeneration();
+                    model = buildModel(false);
+                }
+            }
+        }
+        return lstmTextGeneration;
+    }
+
+    private static MultiLayerNetwork buildModel(boolean loadPretrained) {
+        GravesLSTM.Builder lstmBuilder = new GravesLSTM.Builder();
+        lstmBuilder.nIn(CHARS.length());
+        lstmBuilder.nOut(LSTM_N_OUT);
+        lstmBuilder.activation(Activation.TANH);
+        GravesLSTM inputLayer = lstmBuilder.build();
+        return null;
+    }
+
+
     public static void main(String[] args) throws Exception{
-        int nchars = 20000;
         String inputData = IOUtils.toString(new FileInputStream("sample.txt"), "UTF-8");
-        inputData = inputData.substring(0, nchars);
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890\"\n',.?;()[]{}:!- ";
+        inputData = inputData.substring(0, N_CHARS);
 
         GravesLSTM.Builder lstmBuilder = new GravesLSTM.Builder();
         lstmBuilder.nIn(chars.length());
