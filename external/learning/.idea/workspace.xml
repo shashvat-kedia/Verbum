@@ -4,8 +4,8 @@
     <list default="true" id="4b9c023b-3913-44c2-9b43-e0a6c87de8c8" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/Consumer.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/RabbitMQEndpoint.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/Application.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/SubscriberApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/model/LSTMTextGeneration.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/model/LSTMTextGeneration.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -49,7 +49,7 @@
   <component name="RunManager">
     <configuration name="Application" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
       <module name="learning" />
-      <option name="SPRING_BOOT_MAIN_CLASS" value="com.sk.learning.Application" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.sk.learning.SubscriberApplication" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>

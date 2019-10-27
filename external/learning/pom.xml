@@ -25,6 +25,11 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+        </repository>
     </repositories>
 
     <distributionManagement>
@@ -61,6 +66,13 @@
                 <groupId>org.nd4j</groupId>
                 <artifactId>nd4j-cuda-10.1-platform</artifactId>
                 <version>0.9.1</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-gcp-dependencies</artifactId>
+                <version>1.0.0.M1</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -135,7 +147,6 @@
             <activation>
                 <jdk>1.7</jdk>
             </activation>
-
             <build>
                 <plugins>
                     <plugin>
@@ -245,6 +256,15 @@
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-pubsub</artifactId>
             <version>v1-rev425-1.25.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-integration</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-gcp-starter-pubsub</artifactId>
+            <version>1.0.0.M1</version>
         </dependency>
     </dependencies>
 
