@@ -318,6 +318,16 @@ app.get('/train/:modelId/:minClients', function(req, res) {
 app.post('/grads/:modelId/:sessionId/:socketId',
   multer.any(),
   gcpStorage.UPLOAD_TO_GCS_MIDDLEWARE, function(req, res) {
+    req.setTimeout(3000, function() {
+      res.status(408).json({
+        message: 'Request timeout!'
+      })
+    })
+    res.setTimeout(3000, function() {
+      res.status(503).json({
+        message: 'Response timeout!'
+      })
+    })
     if (req.file != null && req.file.cloudStorageError != null) {
       console.error(req.file.cloudstorageError)
       logger.error(req.file.cloudStorageError)
