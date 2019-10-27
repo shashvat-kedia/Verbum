@@ -10,9 +10,13 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
 });
 const winston = require('winston');
 const logger = winston.createLogger({
-  format: winston.format.json(),
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
   defaultMeta: { service: 'fls-service' },
   transports: [
+    new winston.transports.Console(),
     new winston.transports.File({ filename: 'error.log', level: 'error' }),
     new winston.transports.File({ filename: 'combined.log' })
   ]
@@ -226,7 +230,7 @@ zookeeperClient.on('connected', function() {
         getData(zookeeperClient, '/config', function(data) {
           logger.info('Config obtained from Zookeeper')
           config = JSON.parse(data)
-          console.log(config)
+          logger.info(config)
           client = createEurekaClient(config)
           client.start(function(err) {
             if (err) {
@@ -276,7 +280,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         for (var response in responses) {
           unlocked = uncloked && response
         }
-        console.log('Clients: ' + unlocked)
+        logger.info('Clients: ' + unlocked)
         res.status(204).json({
           message: 'minimum clients criteria cannot be fullfilled',
           availableClients: acceptedClients.length
@@ -360,6 +364,7 @@ app.post('/grads/:modelId/:sessionId/:socketId',
                 clientIds: clientIds,
                 createdAt: Date.now()
               }))).then(function(messsageId) {
+                logger.info("Message Id: " + messageId)
                 res.status(200).json({
                   message: 'Gradient averaging started'
                 })
@@ -369,7 +374,6 @@ app.post('/grads/:modelId/:sessionId/:socketId',
               })
             }
             else {
-              console.log('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
               logger.info('[' + Date.now() + '] No. Clients pending gradient submission: ' + noNotSubmitted)
               res.status(200).json({
                 message: 'Gradients saved. Waiting for other clients.'
@@ -394,7 +398,7 @@ app.get('/global/:modelId/:sessionId/:socketId', function(req, res) {
       }
       else {
         res.status(404).json({
-          message: 'Client not parrt of current training round'
+          message: 'Client not part of current training round'
         })
       }
     }
