@@ -1,7 +1,6 @@
 package com.sk.learning.zookeeper;
 
 import java.io.IOException;
-import java.nio.file.WatchEvent;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.zookeeper.WatchedEvent;

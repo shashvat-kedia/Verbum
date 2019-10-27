@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.gcp.pubsub.core.PubSubTemplate;
 import org.springframework.cloud.gcp.pubsub.integration.AckMode;
 import org.springframework.cloud.gcp.pubsub.integration.inbound.PubSubInboundChannelAdapter;
@@ -15,6 +16,7 @@ import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.handler.annotation.Header;
 
+@EnableDiscoveryClient
 @SpringBootApplication
 public class SubscriberApplication {
     private static final Logger LOGGER = LoggerFactory.getLogger(SubscriberApplication.class.getName());
@@ -26,8 +28,7 @@ public class SubscriberApplication {
     @Bean
     public PubSubInboundChannelAdapter messageChannelAdapter(
             @Qualifier("learning") MessageChannel inputChannel,
-            PubSubTemplate pubSubTemplate
-            ) {
+            PubSubTemplate pubSubTemplate) {
         // To be changed with instance-id of the service instance
         PubSubInboundChannelAdapter adapter = new PubSubInboundChannelAdapter(pubSubTemplate, "sub-1");
         adapter.setOutputChannel(inputChannel);
