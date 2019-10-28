@@ -291,6 +291,7 @@ zookeeperClient.on('connected', function() {
 zookeeperClient.on('disconnected', function() {
   isZookeeperConnected = false
   logger.info('Disconnected from zookeeper')
+  zookeeperClient.connect()
 })
 
 io.on('connection', (socket) => {

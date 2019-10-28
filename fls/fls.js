@@ -49,7 +49,7 @@ var isConnectedToZookeeper = false;
 function createEurekaClient(config) {
   return new Eureka({
     instance: {
-      app: 'fls',
+      app: config['FLS_SERVICE_APP_ID'],
       instanceId: 'fls-1',
       hostName: 'localhost',
       ipAddr: ip.address(),
@@ -250,6 +250,7 @@ zookeeperClient.on('connected', function() {
 
 zookeeperClient.on('disconnected', function() {
   isConnectedToZookeeper = false
+  zookeeperClient.connect()
 })
 
 app.get('/train/:modelId/:minClients', function(req, res) {
