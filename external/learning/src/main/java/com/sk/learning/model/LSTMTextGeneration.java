@@ -43,6 +43,9 @@ public class LSTMTextGeneration {
         return null;
     }
 
+    public void applyGradients(INDArray gradients) {
+        model.backpropGradient(gradients);
+    }
 
     public static void main(String[] args) throws Exception{
         String inputData = IOUtils.toString(new FileInputStream("sample.txt"), "UTF-8");
