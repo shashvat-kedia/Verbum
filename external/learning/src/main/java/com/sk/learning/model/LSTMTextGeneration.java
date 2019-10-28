@@ -1,6 +1,7 @@
 package com.sk.learning.model;
 
 import java.io.FileInputStream;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.IOUtils;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
@@ -21,26 +22,19 @@ import org.slf4j.LoggerFactory;
 public class LSTMTextGeneration {
     private static final Logger LOGGER = LoggerFactory.getLogger(LSTMTextGeneration.class);
 
-    private static LSTMTextGeneration lstmTextGeneration;
-    private static MultiLayerNetwork model;
+    private MultiLayerNetwork model;
+    private AtomicBoolean lock;
 
     private final int N_CHARS = 20000;
     private static final int LSTM_N_OUT = 30;
     private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890\"\n',.?;()[]{}:!- ";
 
-    public static LSTMTextGeneration getInstance() {
-        if (lstmTextGeneration != null) {
-            synchronized (LSTMTextGeneration.class) {
-                if (lstmTextGeneration != null) {
-                    lstmTextGeneration = new LSTMTextGeneration();
-                    model = buildModel(false);
-                }
-            }
-        }
-        return lstmTextGeneration;
+    public LSTMTextGeneration() {
+        lock = new AtomicBoolean(false);
+        model = buildModel(false);
     }
 
-    private static MultiLayerNetwork buildModel(boolean loadPretrained) {
+    private MultiLayerNetwork buildModel(boolean loadPretrained) {
         GravesLSTM.Builder lstmBuilder = new GravesLSTM.Builder();
         lstmBuilder.nIn(CHARS.length());
         lstmBuilder.nOut(LSTM_N_OUT);

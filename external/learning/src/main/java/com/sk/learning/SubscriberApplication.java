@@ -20,6 +20,7 @@ import org.springframework.messaging.handler.annotation.Header;
 @SpringBootApplication
 public class SubscriberApplication {
     private static final Logger LOGGER = LoggerFactory.getLogger(SubscriberApplication.class.getName());
+    private final MessageProcessor messageProcessor = MessageProcessor.getInstance();
 
     public static void main(String[] args) {
         SpringApplication.run(SubscriberApplication.class, args);
@@ -41,6 +42,9 @@ public class SubscriberApplication {
     public void subscriber(SubscriberPayload payload,
                            @Header(GcpPubSubHeaders.ORIGINAL_MESSAGE)BasicAcknowledgeablePubsubMessage message) {
         LOGGER.info("Message received!");
+        if (messageProcessor != null) {
+            messageProcessor.process(payload);
+        }
         message.ack();
     }
 }
