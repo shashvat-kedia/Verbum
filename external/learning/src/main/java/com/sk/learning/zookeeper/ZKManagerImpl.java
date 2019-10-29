@@ -1,5 +1,6 @@
 package com.sk.learning.zookeeper;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 import org.apache.zookeeper.CreateMode;
@@ -11,7 +12,7 @@ public class ZKManagerImpl implements ZKManager {
     private static ZooKeeper zooKeeper;
     private static ZKConnection zkConnection;
 
-    public ZKManagerImpl(String host) {
+    public ZKManagerImpl(String host) throws IOException, InterruptedException {
         zkConnection = new ZKConnection();
         zooKeeper = zkConnection.connect(host);
     }
@@ -21,7 +22,7 @@ public class ZKManagerImpl implements ZKManager {
     }
 
     @Override
-    public int getVersion(String path) {
+    public int getVersion(String path) throws KeeperException, InterruptedException{
         if (zooKeeper != null) {
             return zooKeeper.exists(path, true).getVersion();
         }
@@ -36,7 +37,8 @@ public class ZKManagerImpl implements ZKManager {
     }
 
     @Override
-    public Object getZNodeData(String path, boolean watchFlag) throws UnsupportedEncodingException {
+    public Object getZNodeData(String path, boolean watchFlag)
+            throws UnsupportedEncodingException, KeeperException, InterruptedException {
         if (zooKeeper != null) {
             byte[] b = null;
             b = zooKeeper.getData(path, null, null);

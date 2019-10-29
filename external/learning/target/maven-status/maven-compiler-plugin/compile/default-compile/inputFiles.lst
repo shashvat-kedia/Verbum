@@ -1,5 +1,11 @@
 /Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/TrainingMetrics.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/zookeeper/ZKManagerImpl.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/zookeeper/ZKConnection.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/MessageProcessor.java
 /Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/SubscriberApplication.java
-/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/Subscriber.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/SubscriberPayload.java
 /Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/model/LSTMTextGeneration.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/Utils.java
 /Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/LearningController.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/zookeeper/ZKManager.java
+/Users/shashvatkedia/Desktop/Verbum/external/learning/src/main/java/com/sk/learning/ServiceInstanceRestController.java

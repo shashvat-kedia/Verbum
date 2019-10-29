@@ -3,8 +3,18 @@
   <component name="ChangeListManager">
     <list default="true" id="4b9c023b-3913-44c2-9b43-e0a6c87de8c8" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/MessageProcessor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/MessageProcessor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/SubscriberApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/SubscriberApplication.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/model/LSTMTextGeneration.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/model/LSTMTextGeneration.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/zookeeper/ZKManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/zookeeper/ZKManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/zookeeper/ZKManagerImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/zookeeper/ZKManagerImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/sk/learning/Subscriber.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/sk/learning/SubscriberApplication.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/sk/learning/SubscriberApplication.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/sk/learning/model/LSTMTextGeneration.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/sk/learning/model/LSTMTextGeneration.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../fls/fls.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../fls/fls.js" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -66,7 +76,14 @@
       </list>
     </option>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Application.LSTMTextGeneration">
+    <configuration name="LSTMTextGeneration" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.sk.learning.model.LSTMTextGeneration" />
+      <module name="learning" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Application" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
       <module name="learning" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="com.sk.learning.SubscriberApplication" />
@@ -74,6 +91,11 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Application.LSTMTextGeneration" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />

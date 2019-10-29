@@ -46,7 +46,7 @@ public class MessageProcessor {
         ExecutorService executors = Executors.newFixedThreadPool(N_THREADS);
         ArrayList<String> firstBatch = new ArrayList<String>();
         ArrayList<String> secondBatch = new ArrayList<String>();
-        String leftout;
+        String leftout = null;
         if (gradientPaths.size() % 2 == 0) {
             firstBatch.addAll(gradientPaths.subList(0, gradientPaths.size() / 2));
             secondBatch.addAll(gradientPaths.subList(gradientPaths.size() / 2, gradientPaths.size()));
@@ -73,7 +73,10 @@ public class MessageProcessor {
         return null;
     }
 
+    // Recursively execute this to distribute the computation accross payload.gradientPaths() / 2
     public Callable<INDArray> getAverage(ArrayList<String> gradientPaths) {
+        for (String gradientPath: gradientPaths) {
+        }
         return null;
     }
 

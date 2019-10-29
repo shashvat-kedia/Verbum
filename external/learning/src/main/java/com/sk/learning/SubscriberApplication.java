@@ -1,5 +1,7 @@
 package com.sk.learning;
 
+import java.util.concurrent.ExecutionException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,7 +25,7 @@ public class SubscriberApplication {
     private final MessageProcessor messageProcessor = MessageProcessor.getInstance();
 
     public static void main(String[] args) {
-        SpringApplication.run(SubscriberApplication.class, args);
+       // SpringApplication.run(SubscriberApplication.class, args);
     }
 
     @Bean
@@ -40,7 +42,8 @@ public class SubscriberApplication {
 
     @ServiceActivator(inputChannel = "learning")
     public void subscriber(SubscriberPayload payload,
-                           @Header(GcpPubSubHeaders.ORIGINAL_MESSAGE)BasicAcknowledgeablePubsubMessage message) {
+                           @Header(GcpPubSubHeaders.ORIGINAL_MESSAGE)BasicAcknowledgeablePubsubMessage message)
+            throws InterruptedException, ExecutionException {
         LOGGER.info("Message received!");
         if (messageProcessor != null) {
             messageProcessor.process(payload);
