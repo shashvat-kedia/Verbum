@@ -253,6 +253,7 @@ zookeeperClient.on('disconnected', function() {
   zookeeperClient.connect()
 })
 
+// Seperate storage for models?
 app.get('/train/:modelId/:minClients', function(req, res) {
   serviceURLs = []
   serviceRequestPromises = []
@@ -293,6 +294,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
     }
     else {
       var trainingSession = {
+        modelVersion: 1.0,
         modelId: req.params.modelId,
         participantClients: acceptedClients,
         createdAt: Date.now()

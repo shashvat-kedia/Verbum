@@ -5,3 +5,6 @@ config.json
 */*.log
 */gcp_config.js
 fls/serviceAccount.json
+external/learning/target/
+external/learning/*.log
+external/learning/src/main/resources/serviceAccount.json

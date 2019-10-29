@@ -79,34 +79,6 @@
 
     <profiles>
         <profile>
-            <id>linux</id>
-            <activation>
-                <os>
-                    <name>linux</name>
-                </os>
-            </activation>
-            <properties>
-                <os.name>linux</os.name>
-            </properties>
-            <modules>
-                <module>dl4j-cuda-specific-examples</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>windows</id>
-            <activation>
-                <os>
-                    <family>windows</family>
-                </os>
-            </activation>
-            <properties>
-                <os.name>windows</os.name>
-            </properties>
-            <modules>
-                <module>dl4j-cuda-specific-examples</module>
-            </modules>
-        </profile>
-        <profile>
             <id>OpenJFX-11</id>
             <activation>
                 <jdk>11</jdk>
@@ -173,7 +145,6 @@
                             </execution>
                         </executions>
                     </plugin>
-
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-install-plugin</artifactId>
@@ -295,6 +266,15 @@
             <artifactId>spring-cloud-starter-eureka-server</artifactId>
             <version>1.4.7.RELEASE</version>
         </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-storage</artifactId>
+            <version>1.17.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-gcp-starter-storage</artifactId>
+        </dependency>
     </dependencies>
 
     <properties>
@@ -320,6 +300,30 @@
                 </executions>
                 <configuration>
                     <executable>java</executable>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.5.1</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.1.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.2</version>
+                <configuration>
+                    <archive>
+                        <compress>false</compress>
+                    </archive>
                 </configuration>
             </plugin>
             <plugin>
@@ -352,70 +356,27 @@
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                                    <resource>reference.conf</resource>
-                                </transformer>
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                </transformer>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.5.1</version>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.1.1</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>2.2</version>
-                <configuration>
-                    <archive>
-                        <compress>false</compress>
-                    </archive>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
                                     <resource>META-INF/spring.handlers</resource>
                                 </transformer>
                                 <transformer
-                                    implementation="org.springframework.boot.maven.PropertiesMergingResourceTransformer">
+                                        implementation="org.springframework.boot.maven.PropertiesMergingResourceTransformer">
                                     <resource>META-INF/spring.factories</resource>
                                 </transformer>
                                 <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                                        implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
                                     <resource>META-INF/spring.schemas</resource>
                                 </transformer>
                                 <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                                        implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                                    <resource>reference.conf</resource>
+                                </transformer>
                                 <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>${start-class}</mainClass>
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer">
+                                    <mainClass>com.sk.learning.SubscriberApplication</mainClass>
+                                </transformer>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.sk.learning.SubscriberApplication</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
