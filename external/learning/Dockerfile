@@ -6,7 +6,6 @@ RUN mvn clean install
 FROM openjdk:8-jre-alpine
 WORKDIR /learning
 COPY --from=build /learning/target/original-learning-1.0-SNAPSHOT.jar /learning 
-CMD ["java", "-jar", "original-learning-1.0.SNAPSHOT.jar"]
 
 MAINTAINER Shashvat Kedia
 EXPOSE 8882
