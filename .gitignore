@@ -1,7 +1,7 @@
 node_modules/
 */node_modules/
 external/eureka/eurekaservicediscovery/target/
-config.json
+zookeeper-init/config.json
 */*.log
 */gcp_config.js
 fls/serviceAccount.json
