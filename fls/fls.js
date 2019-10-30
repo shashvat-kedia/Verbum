@@ -33,6 +33,8 @@ const { PubSub } = require('@google-cloud/pubsub');
 const gcpConfig = require('./gcp_config.js');
 const app = express();
 const notifServiceProto = grpc.load('../proto/notif.proto');
+const trainServiceProto = grpc.load('../proto/train_service.proto');
+const grpcServer = new grpc.Server();
 const gcpDatastore = require('./gcp_datastore.js');
 const gcpStorage = require('./gcp_storage.js');
 
@@ -91,6 +93,38 @@ function getActiveClientList(serviceURL, modelId) {
   return deferred.promise
 }
 
+function unlockClients(serviceURL, clients) {
+  var deferred = q.defer()
+  var grpcClient = getGrpcClient(serviceURL)
+  grpcClient.UnlockClients({
+    clients: clients
+  }, function(err, response) {
+    if (err) {
+      deferred.reject(err)
+    }
+    grpc.closeClient(grpcClient)
+    deferred.resolve(response['successful'])
+  })
+  return deferred.promise
+}
+
+function sendNotification(instanceId, clients, message) {
+  return publish(instanceId, Buffer.from(JSON.stringify({
+    clientIds: clients,
+    message: messsage
+  })))
+}
+
+function publish(topicName, data) {
+  var deferred = q.defer()
+  pubSub.topic(topicName).publisher().publish(data).then(function(messageId) {
+    deferred.resolve(messageId)
+  }).fail(function(err) {
+    deferred.reject(err)
+  })
+  return deferred.promise
+}
+
 function evenlyDistributeClients(allSetteledPromise, avgClients) {
   var deferred = q.defer()
   var avgNoClients = avgClients
@@ -145,31 +179,6 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
   return deferred.promise
 }
 
-function unlockClients(serviceURL, clients) {
-  var deferred = q.defer()
-  var grpcClient = getGrpcClient(serviceURL)
-  grpcClient.UnlockClients({
-    clients: clients
-  }, function(err, response) {
-    if (err) {
-      deferred.reject(err)
-    }
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response['successful'])
-  })
-  return deferres.promise
-}
-
-function publish(topicName, data) {
-  var deferred = q.defer()
-  pubSub.topic(topicName).publisher().publish(data).then(function(messageId) {
-    deferred.resolve(messageId)
-  }).fail(function(err) {
-    deferred.reject(err)
-  })
-  return deferred.promise
-}
-
 function getData(client, path, done) {
   client.getData(path, function(event) {
     getData(client, path, done)
@@ -209,6 +218,10 @@ function searchForClient(participantClients, clientId) {
   return null
 }
 
+function getClientIds(clientMetadata) {
+  return Object.values(clientMetadata).map(x => x.socketId)
+}
+
 function deRegister(isProcessExit) {
   client.stop(function() {
     if (isProcessExit) {
@@ -237,6 +250,8 @@ zookeeperClient.on('connected', function() {
               throw err
             }
           })
+          grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
+          grpcServer.start()
           pubSub = new PubSub(gcpConfig.GCP_CONFIG)
         })
       }
@@ -251,6 +266,30 @@ zookeeperClient.on('connected', function() {
 zookeeperClient.on('disconnected', function() {
   isConnectedToZookeeper = false
   zookeeperClient.connect()
+})
+
+grpcServer.addService(trainServiceProto.TextGenerationService.service, {
+  OnTrainingFinished: function(call, callback) {
+    gcpDatastore.get('/model-training/' + call.modelId + '/' + call.sessionId).then(function(trainingSession) {
+      var sendNotificationPromises = []
+      var clientPartitions = partitionClientsByInstanceId(trainingSession['paritcipantClients'])
+      for (var serviceInstanceId in clientPartitions) {
+        sendNotificationPromises.push(sendNotification(serviceInstanceId,
+          getClientIds(clientPartitions[serviceInstanceId]), {
+            id: 'FETCH_MODEL',
+            link: call.globalModelCheckpointURL
+          }))
+      }
+      callback(null, {
+        isSuccess: true
+      })
+    }).fail(function(err) {
+      logger.error(err)
+      callback(null, {
+        isSuccess: false
+      })
+    })
+  }
 })
 
 // Seperate storage for models?
@@ -274,7 +313,8 @@ app.get('/train/:modelId/:minClients', function(req, res) {
       var clientPartitions = partitionClientsByInstanceId(acceptedClients)
       for (var serviceURL in serviceURLs) {
         if (clientPartitions[serviceURL['instanceId']] != null) {
-          unlockClientPromises.push(unlockClients(serviceURL['serviceURL'], clientPartitions[serviceURL['instanceId']]))
+          unlockClientPromises.push(unlockClients(serviceURL['serviceURL'],
+            getClientIds(clientPartitions[serviceURL['instanceId']])))
         }
       }
       q.allSettled(unlockClientPromises).then(function(responses) {
@@ -400,29 +440,27 @@ app.post('/grads/:modelId/:sessionId/:socketId',
     }
   })
 
-app.get('/global/:modelId/:sessionId/:socketId', function(req, res) {
-  gcpStorage.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(data) {
-    var trainingSession = data
-    if (trainingSession['globalModelCheckpoint'] != null) {
-      var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
-      if (index != null) {
-        trainingSession['participantClients'][index]['globalModelCheckoutTime'] = Date.now()
-
+app.get('/model/:modelId/:sessionId/checkpoint/:socketId', function(req, res) {
+  gcpStore.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(trainingSession) {
+    if (searchForClient(trainingSession['participantClients'], req.params.socketId) != null) {
+      if (trainingSession['isTrainingComplete'] != null && trainingSession['isTrainingComplete']) {
+        res.status(200).json({
+          message: 'Model training compleeted at ' + trainingSession['completionTimestamp'],
+          checkpointURL: trainingSession['globalModelCheckpointURL']
+        })
       }
       else {
-        res.status(404).json({
-          message: 'Client not part of current training round'
+        res.status(200).json({
+          message: 'Model training not completed',
+          progress: trainingSession['modelTrainingProgress']
         })
       }
     }
     else {
-      res.status(200).json({
-        message: 'Model training has not completed yet'
+      res.status(404).json({
+        message: 'Client: ' + req.params.socketId + ' not part of current training round'
       })
     }
-  }).fail(function(err) {
-    console.error(err)
-    logger.error(err)
   })
 })
 

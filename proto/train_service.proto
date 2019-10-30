@@ -1,16 +1,17 @@
 syntax="proto3";
 
-message TrainConfig {
-  repeated string client_id = 1;
-  int64 model_id = 2;
-  repeated double train_test_valid_split = 3;
-}
-
 message TrainMetrics {
-  double accuracy = 1;
-  double loss = 2;
+  string sessionId = 1;
+  string modelId = 2;
+  string globalModelCheckpointURL = 3;
+  double accuracy = 4;
+  double loss = 5;
 }
 
-service TrainOp {
-  rpc StartTraining(TrainConfig) returns (TrainMetrics) {}
+message Response {
+  bool isSuccess = 1;
+}
+
+service TextGenerationService {
+  rpc OnTrainingFinished(TrainMetrics) returns (Response) {}
 }

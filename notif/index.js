@@ -209,7 +209,7 @@ function deRegister(isProcessExit) {
 }
 
 grpcServer.addService(notifServiceProto.NotificationService.service, {
-  GetActiveClients: function(call, callbacks) {
+  GetActiveClients: function(call, callback) {
     availableClients = []
     for (var id in openConnections) {
       if (!openConnections[id]['modelIdLock']) {
@@ -223,13 +223,13 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     }
     callback(null, availableClients)
   },
-  UnlockClients: function(call, callbacks) {
+  UnlockClients: function(call, callback) {
     for (var client in call.clients) {
       var id = client['socketId']
       openConnections[id]['modelIdLock'] = false
       openConnections[id]['modelId'] = null
     }
-    callbacks(null, {
+    callback(null, {
       successful: true
     })
   }
