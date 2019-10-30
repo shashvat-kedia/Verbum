@@ -212,7 +212,7 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
   GetActiveClients: function(call, callback) {
     availableClients = []
     for (var id in openConnections) {
-      if (!openConnections[id]['modelIdLock']) {
+      if (!openConnections[id]['modelIdLock'] && !openConnections[id]['isUnavailable']) {
         availableClients.push({
           socketId: id,
           notifIns: nodeId
@@ -299,8 +299,25 @@ io.on('connection', (socket) => {
     openConnections[socket['id']] = {
       socket: socket,
       modelIdLock: false,
-      modelId: null
+      modelId: null,
+      isUnavailable: false
     }
+    socket.on('disconnect', (reason) => {
+      if (openConnections[socket['id']] != null) {
+        openConnections[socket['id']] = null //To handle cases where a client part of an active training round disconnects
+      }
+    })
+    socket.on('error', (error) => {
+      if (openConnections[socket['id']] != null) {
+        openConnections[socket['id']]['isUnavailable'] = true
+      }
+    })
+    socket.on('training-complete', (data) => {
+      //Queue message containing Date.now() and socket['id'] and data.modelId and data.sessionId
+    })
+  }
+  else if (socket['id'] != null && openConnections[socket['id']] != null && openConnections[socket['id']]['isUnavailable']) {
+    openConnections[socket['id']]['isUnavailable'] = false
   }
 })
 
