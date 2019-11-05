@@ -9,6 +9,15 @@ message ClientList {
   repeated Client clients = 1;
 }
 
+message ClientProgress {
+  string clientId = 1;
+  double trainingProgress = 2;
+}
+
+message TrainingProgress {
+  repeated ClientProgress clientProgress = 2;
+}
+
 message Response {
   bool successful = 1;
 }
@@ -20,4 +29,5 @@ message ModelDetails {
 service NotificationService {
   rpc GetActiveClients(ModelDetails) returns (ClientList); 
   rpc UnlockClients(ClientList) returns (Response);
+  rpc GetClientTrainingProgress(ClientList) returns (TrainingProgress);
 }

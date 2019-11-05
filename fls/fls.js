@@ -108,6 +108,21 @@ function unlockClients(serviceURL, clients) {
   return deferred.promise
 }
 
+function getClientProgress(serviceURL, clients) {
+  var deferred = q.defer()
+  var grpcClient = getGrpcClient(serviceURL)
+  grpcClient.GetClientTrainingProgress({
+    clients: clients
+  }, function(err, response) {
+    if (err) {
+      deferred.reject(err)
+    }
+    grpc.closeClient(grpcClient)
+    deferred.resolve(response['clientProgress'])
+  })
+  return deferred.promise
+}
+
 function sendNotification(instanceId, clients, message) {
   return publish(instanceId, Buffer.from(JSON.stringify({
     clientIds: clients,
@@ -292,17 +307,22 @@ grpcServer.addService(trainServiceProto.TextGenerationService.service, {
   }
 })
 
-// Seperate storage for models?
-app.get('/train/:modelId/:minClients', function(req, res) {
+function getServiceURLs(appId) {
   serviceURLs = []
-  serviceRequestPromises = []
-  var notifServices = client.getInstancesByAppId('notif')
+  var notifServices = client.getInstancesByAppId(appId)
   for (var i = 0; i < notifServices.length; i++) {
     serviceURLs.push({
       serviceURL: notifServices[i]['ipAddr'] + ':' + '5001',
       instanceId: notifServicesp[i]['instanceId']
     })
   }
+  return serviceURLs
+}
+
+// Seperate storage for models?
+app.get('/train/:modelId/:minClients', function(req, res) {
+  var serviceURLs = getServiceURLs('notif')
+  serviceRequestPromises = []
   for (var serviceURL in serviceURLs) {
     serviceRequestPromises.push(getActiveClientList(serviceURL['serviceURL'], req.params.modelId))
   }
@@ -461,6 +481,56 @@ app.get('/model/:modelId/:sessionId/checkpoint/:socketId', function(req, res) {
         message: 'Client: ' + req.params.socketId + ' not part of current training round'
       })
     }
+  })
+})
+
+function min(values, key) {
+  var minValue = Number.MAX_SAFE_INTEGER
+  for (var value in values) {
+    var actValue = value;
+    if (key != null) {
+      actValue = value[key]
+    }
+    if (actValue < minValue) {
+      minValue = actValue
+    }
+  }
+  return minValue
+}
+
+app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
+  gcpStore.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(trainingSession) {
+    var clientProgressPromises = []
+    var clientPartitions = partitionClientsByInstanceId(trainingSession['participantClients'])
+    var serviceURLs = getServiceURLs('notif')
+    for (var serviceURL in serviceURLs) {
+      if (clientPartitions[serviceURL['instanceId']] != null) {
+        clientProgressPromises.push(getClientProgress(serviceURL['serviceURL'],
+          getClientIds(clientPartitions[serviceURL['instanceId']])))
+      }
+    }
+    var progress = Number.MAX_SAFE_INTEGER
+    var indvClientProgress = []
+    q.allSettled(clientProgressPromises).then(function(responses) {
+      for (var response in responses) {
+        var minProgress = min(response, 'trainingProgress')
+        if (minProgress < progress) {
+          progress = minProgress
+        }
+        Array.prototype.push(indvClientProgress, responses)
+      }
+      logger.info("Training progress: " + progress)
+      logger.info("Individual training progress: " + indvClientProgress)
+      var response = {
+        trainingProgress: progress
+      }
+      if (req.params.flag == 1) {
+        response['clientProgress'] = indvClientProgress
+      }
+      res.status(200).json(response)
+    }).fail(function(err) {
+      logger.error(err)
+    })
   })
 })
 

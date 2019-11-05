@@ -232,6 +232,20 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     callback(null, {
       successful: true
     })
+  },
+  GetClientTrainingProgress: function(call, callback) {
+    var clientProgress = []
+    for (var client in call.clients) {
+      if (openConnections[client['socketId']]['modelIdLock']) {
+        clientProgress.push({
+          clientId: socket['id'],
+          trainingProgress: openConnections[socket['id']]['trainingProgress']
+        })
+      }
+    }
+    callback(null, {
+      clientProgress: clientProgress
+    })
   }
 })
 
@@ -314,6 +328,11 @@ io.on('connection', (socket) => {
     })
     socket.on('training-complete', (data) => {
       //Queue message containing Date.now() and socket['id'] and data.modelId and data.sessionId
+    })
+    socket.on('progress-update', (data) => {
+      if (openConnections[socket['id']] != null && openConnections[socket['id']]['modelId'] == data.modelId) {
+        openConnections[socket['id']]['trainingProgresss'] = data['trainingProgress']
+      }
     })
   }
   else if (socket['id'] != null && openConnections[socket['id']] != null && openConnections[socket['id']]['isUnavailable']) {
