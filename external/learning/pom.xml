@@ -321,7 +321,7 @@
                 <executions>
                     <execution>
                         <id>copy-proto</id>
-                        <phase>generate-sources</phase>
+                        <phase>initialize</phase>
                         <goals>
                             <goal>copy</goal>
                         </goals>

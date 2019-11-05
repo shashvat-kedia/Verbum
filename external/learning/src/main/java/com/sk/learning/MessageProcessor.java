@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.stereotype.Component;
 
-import com.netflix.appinfo.InstanceInfo;
 import com.sk.learning.grpc.FlServiceClient;
 import com.sk.learning.model.LSTMTextGeneration;
 
@@ -124,5 +123,4 @@ public class MessageProcessor {
             }
         };
     }
-
 }
