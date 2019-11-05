@@ -1,6 +1,10 @@
 package com.sk.learning;
 
+import java.io.BufferedInputStream;
+import java.io.ObjectInputStream;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -17,11 +21,13 @@ import com.sk.learning.model.LSTMTextGeneration;
 public class MessageProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageProcessor.class.getName());
 
-    private final int N_THREADS = 2;
+    private final int N_THREADS = Utils.getNoOfCores() + 1;
     private final long DEFAULT_TIMEOUT = 7000;
 
     private static MessageProcessor messageProcessor;
     private LSTMTextGeneration lstmTextGeneration;
+    private ExecutorService executors;
+    private ExecutorService downloaders;
 
     public static MessageProcessor getInstance() {
         if (messageProcessor == null) {
@@ -36,48 +42,69 @@ public class MessageProcessor {
 
     private MessageProcessor() {
         lstmTextGeneration = new LSTMTextGeneration();
+        executors = Executors.newFixedThreadPool(N_THREADS);
+        downloaders = Executors.newCachedThreadPool();
     }
 
     public void process(SubscriberPayload payload) throws InterruptedException, ExecutionException {
         if (payload.getGradientPaths().size() != payload.getClientIds().size()) {
             LOGGER.info("Misfire of event from FLS service. Payload: " + payload);
         }
-        ArrayList<String> gradientPaths = payload.getGradientPaths();
-        ExecutorService executors = Executors.newFixedThreadPool(N_THREADS);
-        ArrayList<String> firstBatch = new ArrayList<String>();
-        ArrayList<String> secondBatch = new ArrayList<String>();
-        String leftout = null;
-        if (gradientPaths.size() % 2 == 0) {
-            firstBatch.addAll(gradientPaths.subList(0, gradientPaths.size() / 2));
-            secondBatch.addAll(gradientPaths.subList(gradientPaths.size() / 2, gradientPaths.size()));
+        INDArray sum = null;
+        List<String> gradientPaths = payload.getGradientPaths();
+        List<Future<INDArray>> gradients = new ArrayList<>();
+        for (int i = 0; i < Math.floor(gradientPaths.size() / N_THREADS); i++) {
+            List<String> gradientPathsBatch = gradientPaths.subList(i * N_THREADS, Math.min((i + 1) * N_THREADS, gradientPaths.size()));
+            gradients.add(executors.submit(getSum(gradientPathsBatch)));
         }
-        else {
-            firstBatch.addAll(gradientPaths.subList(0, gradientPaths.size() / 2));
-            secondBatch.addAll(gradientPaths.subList(gradientPaths.size() / 2, gradientPaths.size() - 1));
-            leftout = gradientPaths.get(gradientPaths.size() - 1);
-        }
-        if (!firstBatch.isEmpty() && !secondBatch.isEmpty()) {
-            Future<INDArray> firstBatchAvg = executors.submit(getAverage(firstBatch));
-            Future<INDArray> secondBatchAvg = executors.submit(getAverage(secondBatch));
-            executors.awaitTermination(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS);
-            INDArray averagedOutput = firstBatchAvg.get().add(secondBatchAvg.get());
-            if (leftout != null) {
-                INDArray lefout = getGradients(leftout).get().div(firstBatch.size());
-                averagedOutput.add(lefout).div(3);
+        executors.awaitTermination(DEFAULT_TIMEOUT, TimeUnit.MILLISECONDS);
+        for (Future<INDArray> gradient : gradients) {
+            if (sum == null) {
+                sum = gradient.get();
+            } else {
+                sum.add(gradient.get());
             }
-            lstmTextGeneration.applyGradients(averagedOutput);
         }
+        sum.div(gradientPaths.size());
+        lstmTextGeneration.applyGradients(sum);
     }
 
-    public Future<INDArray> getGradients(String gradientPath) {
-        return null;
+    private Future<INDArray> getGradients(String gradientPath) {
+        return downloaders.submit(() -> {
+            INDArray fetchedGradient;
+            BufferedInputStream bis = null;
+            ObjectInputStream ois = null;
+            try {
+                URL url = new URL(gradientPath);
+                bis = new BufferedInputStream(url.openStream());
+                ois = new ObjectInputStream(bis);
+                fetchedGradient = (INDArray) ois.readObject();
+
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            } finally {
+                if (bis != null) {
+                    bis.close();
+                }
+                if (ois != null) {
+                    ois.close();
+                }
+            }
+            return fetchedGradient;
+        });
     }
 
     // Recursively execute this to distribute the computation accross payload.gradientPaths() / 2
-    public Callable<INDArray> getAverage(ArrayList<String> gradientPaths) {
-        for (String gradientPath: gradientPaths) {
-        }
-        return null;
+    private Callable<INDArray> getSum(List<String> gradientPaths) throws InterruptedException, ExecutionException {
+        return new Callable<INDArray>() {
+            @Override
+            public INDArray call() throws Exception {
+                for (String gradientPath : gradientPaths) {
+                    INDArray array = getGradients(gradientPath).get();
+                }
+                return null;
+            }
+        };
     }
 
 }
