@@ -78,7 +78,7 @@ public class MessageProcessor {
         }
         sum.div(gradientPaths.size());
         lstmTextGeneration.applyGradients(sum);
-        flServiceClient.onTrainingFinished(null, );
+        //flServiceClient.onTrainingFinished(null);
     }
 
 //    private InstanceInfo selectInstance(String applicationId) {

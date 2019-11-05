@@ -29,5 +29,6 @@ com/sk/learning/Utils.class
 com/sk/learning/grpc/TrainMetricsOrBuilder.class
 com/sk/learning/grpc/TrainMetrics$Builder.class
 com/sk/learning/grpc/TextGenerationServiceGrpc$1.class
+com/sk/learning/grpc/FlServiceClient.class
 com/sk/learning/grpc/TextGenerationServiceGrpc$TextGenerationServiceFutureStub.class
 com/sk/learning/zookeeper/ZKManager.class
