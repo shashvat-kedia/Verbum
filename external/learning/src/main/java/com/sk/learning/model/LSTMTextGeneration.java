@@ -105,8 +105,8 @@ public class LSTMTextGeneration {
         }
     }
 
-    public static void main(String[] args) throws Exception {
-        LSTMTextGeneration generation = new LSTMTextGeneration();
+    public static void temp(String[] args) throws Exception {
+        //LSTMTextGeneration generation = new LSTMTextGeneration();
 //        INDArray inputArray = Nd4j.zeros(1, inputLayer.getNIn(), inputData.length());
 //        INDArray inputLabels = Nd4j.zeros(1, outputLayer.getNOut(), inputData.length());
 //

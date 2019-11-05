@@ -16,10 +16,10 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.stereotype.Component;
 
 import com.netflix.appinfo.InstanceInfo;
-import com.netflix.discovery.DiscoveryClient;
 import com.sk.learning.grpc.FlServiceClient;
 import com.sk.learning.model.LSTMTextGeneration;
 
@@ -36,7 +36,7 @@ public class MessageProcessor {
     private ExecutorService downloaders;
 
     @Autowired
-    private DiscoveryClient discoveryClient;
+    private LoadBalancerClient loadBalancer;
     @Autowired
     private FlServiceClient flServiceClient;
 
@@ -81,11 +81,11 @@ public class MessageProcessor {
         flServiceClient.onTrainingFinished(null, );
     }
 
-    private InstanceInfo selectInstance(String applicationId) {
-        List<InstanceInfo> instanceInfos = discoveryClient.getInstancesById(applicationId);
-        for (InstanceInfo instanceInfo : instanceInfos) {
-        }
-    }
+//    private InstanceInfo selectInstance(String applicationId) {
+//        List<InstanceInfo> instanceInfos = discoveryClient.getInstancesById(applicationId);
+//        for (InstanceInfo instanceInfo : instanceInfos) {
+//        }
+//    }
 
     private Future<INDArray> getGradients(String gradientPath) {
         return downloaders.submit(() -> {

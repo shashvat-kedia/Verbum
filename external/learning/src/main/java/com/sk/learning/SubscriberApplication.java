@@ -25,7 +25,7 @@ public class SubscriberApplication {
     private final MessageProcessor messageProcessor = MessageProcessor.getInstance();
 
     public static void main(String[] args) {
-       // SpringApplication.run(SubscriberApplication.class, args);
+       SpringApplication.run(SubscriberApplication.class, args);
     }
 
     @Bean
