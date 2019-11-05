@@ -15,9 +15,15 @@ import java.util.concurrent.TimeUnit;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+import com.netflix.appinfo.InstanceInfo;
+import com.netflix.discovery.DiscoveryClient;
+import com.sk.learning.grpc.FlServiceClient;
 import com.sk.learning.model.LSTMTextGeneration;
 
+@Component
 public class MessageProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageProcessor.class.getName());
 
@@ -28,6 +34,11 @@ public class MessageProcessor {
     private LSTMTextGeneration lstmTextGeneration;
     private ExecutorService executors;
     private ExecutorService downloaders;
+
+    @Autowired
+    private DiscoveryClient discoveryClient;
+    @Autowired
+    private FlServiceClient flServiceClient;
 
     public static MessageProcessor getInstance() {
         if (messageProcessor == null) {
@@ -67,6 +78,13 @@ public class MessageProcessor {
         }
         sum.div(gradientPaths.size());
         lstmTextGeneration.applyGradients(sum);
+        flServiceClient.onTrainingFinished(null, );
+    }
+
+    private InstanceInfo selectInstance(String applicationId) {
+        List<InstanceInfo> instanceInfos = discoveryClient.getInstancesById(applicationId);
+        for (InstanceInfo instanceInfo : instanceInfos) {
+        }
     }
 
     private Future<INDArray> getGradients(String gradientPath) {
