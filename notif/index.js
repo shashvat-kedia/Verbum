@@ -151,8 +151,9 @@ function generateNodeId() {
         deferred.reject(err)
       }
       var id = data.toString('utf8')
+      console.log(id)
       updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + id, id).then(function(_) {
-        deferred.resolve(data)
+        deferred.resolve(id)
       }).fail(function(err) {
         deferred.reject(err)
       })
@@ -309,21 +310,36 @@ zookeeperClient.on('disconnected', function() {
 })
 
 io.on('connection', (socket) => {
-  if (socket['id'] != null && openConnections[socketId] == null) {
+  if (socket['id'] != null && openConnections[socket['id']] == null) {
+    socket.reconnect()
+    logger.info('New connection: ' + socket['id'])
     openConnections[socket['id']] = {
       socket: socket,
       modelIdLock: false,
       modelId: null,
       isUnavailable: false
     }
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', (response) => {
       if (openConnections[socket['id']] != null) {
-        openConnections[socket['id']] = null //To handle cases where a client part of an active training round disconnects
+        if (openConnections[socket['id']]['modelIdLock']) {
+          logger.info('Trying to reconnect to: ' + socket['id'])
+          socket.connect()
+        }
+        else {
+          logger.info('Client disconnected: ' + socket['id'])
+          openConnections[socket['id']] = null
+        }
       }
     })
     socket.on('error', (error) => {
       if (openConnections[socket['id']] != null) {
-        openConnections[socket['id']]['isUnavailable'] = true
+        if (openConnections[socket['id']]['modelIdLock']) {
+          logger.info('Trying to reconnect to: ' + socket['id'])
+          socket.connect()
+        }
+        else {
+          openConnections[socket['id']]['isUnavailable'] = true
+        }
       }
     })
     socket.on('training-complete', (data) => {
@@ -331,7 +347,7 @@ io.on('connection', (socket) => {
     })
     socket.on('progress-update', (data) => {
       if (openConnections[socket['id']] != null && openConnections[socket['id']]['modelId'] == data.modelId) {
-        openConnections[socket['id']]['trainingProgresss'] = data['trainingProgress']
+        openConnections[socket['id']]['trainingProgress'] = data['trainingProgress']
       }
     })
   }

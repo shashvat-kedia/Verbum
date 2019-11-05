@@ -233,6 +233,20 @@ function searchForClient(participantClients, clientId) {
   return null
 }
 
+function min(values, key) {
+  var minValue = Number.MAX_SAFE_INTEGER
+  for (var value in values) {
+    var actValue = value;
+    if (key != null) {
+      actValue = value[key]
+    }
+    if (actValue < minValue) {
+      minValue = actValue
+    }
+  }
+  return minValue
+}
+
 function getClientIds(clientMetadata) {
   return Object.values(clientMetadata).map(x => x.socketId)
 }
@@ -306,18 +320,6 @@ grpcServer.addService(trainServiceProto.TextGenerationService.service, {
     })
   }
 })
-
-function getServiceURLs(appId) {
-  serviceURLs = []
-  var notifServices = client.getInstancesByAppId(appId)
-  for (var i = 0; i < notifServices.length; i++) {
-    serviceURLs.push({
-      serviceURL: notifServices[i]['ipAddr'] + ':' + '5001',
-      instanceId: notifServicesp[i]['instanceId']
-    })
-  }
-  return serviceURLs
-}
 
 // Seperate storage for models?
 app.get('/train/:modelId/:minClients', function(req, res) {
@@ -483,20 +485,6 @@ app.get('/model/:modelId/:sessionId/checkpoint/:socketId', function(req, res) {
     }
   })
 })
-
-function min(values, key) {
-  var minValue = Number.MAX_SAFE_INTEGER
-  for (var value in values) {
-    var actValue = value;
-    if (key != null) {
-      actValue = value[key]
-    }
-    if (actValue < minValue) {
-      minValue = actValue
-    }
-  }
-  return minValue
-}
 
 app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
   gcpStore.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(trainingSession) {
