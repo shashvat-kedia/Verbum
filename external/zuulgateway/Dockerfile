@@ -6,7 +6,7 @@ RUN mvn package
 
 FROM openjdk:8-jre-alpine
 WORKDIR /zuulgateway
-COPY --from=build /zuulgateway/target/original-zuulgateway-1.0-SNAPSHOT.jar /zuulgateway
+COPY --from=build /target/original-zuulgateway-1.0-SNAPSHOT.jar /zuulgateway
 CMD ["java", "-jar", "original-zuulgateway-1.0-SNAPSHOT.jar"]
 
 MAINTAINER Shashvat Kedia
