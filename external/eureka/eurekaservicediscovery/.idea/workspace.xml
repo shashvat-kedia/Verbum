@@ -4,12 +4,17 @@
     <list default="true" id="1101cd38-4d52-41db-8dfd-fc8022d4222b" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../learning/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../learning/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/Dockerfile" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../learning/dependency-reduced-pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/dependency-reduced-pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../learning/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../learning/src/main/java/com/sk/learning/LearningController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/src/main/java/com/sk/learning/LearningController.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../learning/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/src/main/resources/application.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../../fls/fls.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../../fls/fls.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../../pom.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../learning/target/classes/com/sk/learning/LearningController.class" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/target/classes/com/sk/learning/LearningController.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../learning/target/classes/com/sk/learning/SubscriberApplication.class" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/target/classes/com/sk/learning/SubscriberApplication.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../learning/target/classes/com/sk/learning/model/LSTMTextGeneration.class" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/target/classes/com/sk/learning/model/LSTMTextGeneration.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../zuulgateway/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../zuulgateway/.idea/compiler.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../zuulgateway/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../zuulgateway/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../zuulgateway/src/main/java/com/sk/zuulgateway/ZuulGatewayApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/../../zuulgateway/src/main/java/com/sk/zuulgateway/ZuulGatewayApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../zuulgateway/src/main/resources/application.properties" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
