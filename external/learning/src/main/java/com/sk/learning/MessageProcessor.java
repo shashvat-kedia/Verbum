@@ -77,14 +77,8 @@ public class MessageProcessor {
         }
         sum.div(gradientPaths.size());
         lstmTextGeneration.applyGradients(sum);
-        //flServiceClient.onTrainingFinished(null);
+        flServiceClient.onTrainingFinished(null);
     }
-
-//    private InstanceInfo selectInstance(String applicationId) {
-//        List<InstanceInfo> instanceInfos = discoveryClient.getInstancesById(applicationId);
-//        for (InstanceInfo instanceInfo : instanceInfos) {
-//        }
-//    }
 
     private Future<INDArray> getGradients(String gradientPath) {
         return downloaders.submit(() -> {

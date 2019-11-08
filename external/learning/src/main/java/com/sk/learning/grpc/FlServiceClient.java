@@ -18,8 +18,8 @@ public class FlServiceClient {
     private void init() {
     }
 
-    public Response onTrainingFinished(TrainMetrics trainMetrics, String hostName, int port) {
-        ManagedChannel managedChannel = ManagedChannelBuilder.forAddress(hostName, port).usePlaintext().build();
+    public Response onTrainingFinished(TrainMetrics trainMetrics) {
+        ManagedChannel managedChannel = ManagedChannelBuilder.forTarget("localhost:9000/fls").usePlaintext().build();
         return TextGenerationServiceGrpc.newBlockingStub(managedChannel).onTrainingFinished(trainMetrics);
     }
 }

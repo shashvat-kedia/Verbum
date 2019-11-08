@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4b9c023b-3913-44c2-9b43-e0a6c87de8c8" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../zuulgateway/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/../zuulgateway/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/MessageProcessor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/MessageProcessor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/grpc/FlServiceClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/grpc/FlServiceClient.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
