@@ -14,14 +14,6 @@ services:
     ports:
       - target: 8761
         published: 8761
-  zuul:
-    restart: always
-    build:
-      context: ./external/zuulgateway
-      dockerfile: Dockerfile
-    ports:
-      - target: 9000
-        publiched: 9000
   notification:
     restart: always
     build:
@@ -36,7 +28,6 @@ services:
     depends_on:
       - zookeeper
       - eureka
-      - zuul
   fls:
     restart: always
     build:

@@ -90,7 +90,6 @@ public class MessageProcessor {
                 bis = new BufferedInputStream(url.openStream());
                 ois = new ObjectInputStream(bis);
                 fetchedGradient = (INDArray) ois.readObject();
-
             } catch (Exception exception) {
                 throw new RuntimeException(exception);
             } finally {
@@ -105,15 +104,21 @@ public class MessageProcessor {
         });
     }
 
-    // Recursively execute this to distribute the computation accross payload.gradientPaths() / 2
     private Callable<INDArray> getSum(List<String> gradientPaths) throws InterruptedException, ExecutionException {
         return new Callable<INDArray>() {
             @Override
             public INDArray call() throws Exception {
+                INDArray sum = null;
                 for (String gradientPath : gradientPaths) {
                     INDArray array = getGradients(gradientPath).get();
+                    if (sum == null) {
+                        sum = array;
+                    }
+                    else {
+                        sum.add(array);
+                    }
                 }
-                return null;
+                return sum;
             }
         };
     }
