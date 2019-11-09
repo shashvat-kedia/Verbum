@@ -344,14 +344,18 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         }
       }
       q.allSettled(unlockClientPromises).then(function(responses) {
+        var failedUnlocks = []
         var unlocked = true
-        for (var response in responses) {
-          if (response.state == 'fullfilled') {
-            unlocked = uncloked && response.value
+        for (var i = 0; i < responses.length; i++) {
+          if (responses[i].state == 'fullfilled') {
+            unlocked = uncloked && responses[i].value
           }
           else {
-            logger.error(response.reason)
-            // Handle client unlock failure here
+            logger.error(responses[i].reason)
+            failedUnlocks.push({
+              'instanceId': serviceURLs[i]['instanceId'],
+              'modelId': req.params.modelId
+            })
           }
         }
         logger.info('Clients: ' + unlocked)
@@ -359,6 +363,21 @@ app.get('/train/:modelId/:minClients', function(req, res) {
           message: 'minimum clients criteria cannot be fullfilled',
           availableClients: acceptedClients.length
         })
+        if (failedUnlocks.length != 0) {
+          for (var failedUnlock in failedUnlocks) {
+            zookeeperClient.create('/verbum/unlock/' + failedUnlock['instanceId'] + '/' + failedUnlock['modelId'],
+              Buffer.from(JSON.stringify({
+                clients: getClientIds(clientPartitions[serviceURLs[i]['instanceId']])
+              })),
+              zookeeper.CreateMode.PERSISTENT,
+              function(err, path) {
+                if (err) {
+                  logger.error(err)
+                }
+                logger.info('Flag added to unlock clients')
+              })
+          }
+        }
       })
     }
     else {

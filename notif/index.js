@@ -85,6 +85,23 @@ function getData(client, path, done) {
   })
 }
 
+function getChildren(client, path, done) {
+  client.getChildren(path, function(event) {
+    getChildren(client, path, done)
+  }, function(err, children, stat) {
+    if (err) {
+      loggeer.error(err)
+      throw err
+    }
+    if (stat) {
+      done(children)
+    }
+    else {
+      done(null)
+    }
+  })
+}
+
 function cleanup() {
   if (nodeId != null) {
     zookeeperClient.remove(config['ZOOKEEPER_NODES_PATH'] + '/' + nodeId, -1, function(err) {
@@ -162,11 +179,34 @@ function generateNodeId() {
   return deferred.promise
 }
 
-function connectToServices() {
+function unlockPendingClients() {
+  getChildren(zookeeperClient, '/verbum/unlock/' + nodeId, function(modelIds) {
+    if (modelIds != null) {
+      for (var modelId in modelIds) {
+        getData('/verbum/unlock/' + nodeId + '/' + modelId, function(clients) {
+          var clientIds = JSON.parse(data).clients
+          for (var clientId in clientIds) {
+            if (openConnections[clientId] != null && openConnections[clientId]['modelIdLock']
+              && openConnections[clientId]['modelId'] == modelId) {
+              openConnections[clientId]['modelIdLock'] = false
+              openConnections[clientId]['modelId'] = null
+            }
+          }
+        })
+      }
+    }
+    else {
+      logger.info('No cients to unlock')
+    }
+  })
+}
+
+function init() {
   startEurekaClient()
   startGrpcServer()
   connectToRMQ()
   setupSubscriber()
+  unlockClients()
 }
 
 function setupSubscriber() {
@@ -272,7 +312,7 @@ zookeeperClient.on('connected', function() {
           if (stat) {
             generateNodeId().then(function(instanceId) {
               nodeId = instanceId
-              connectToServices()
+              init()
             }).fail(function(err) {
               logger.error(err)
               throw err
@@ -286,7 +326,7 @@ zookeeperClient.on('connected', function() {
               }
               generateNodeId().then(function(instanceId) {
                 nodeId = instanceId
-                connectToServices()
+                init()
               }).fail(function(err) {
                 logger.error(err)
                 throw err
