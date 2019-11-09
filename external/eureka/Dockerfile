@@ -1,8 +1,8 @@
 FROM maven:3.5-jdk-8-alpine AS build
-COPY ./pom.xml ./pom.xml
+COPY /eurekaservicediscovery/pom.xml ./pom.xml
 RUN mvn dependency:go-offline -B
-COPY ./src ./src
-RUN mvn package
+COPY /eurekaservicediscovery/src ./src
+RUN mvn clean install
 
 FROM openjdk:8-jre-alpine
 WORKDIR /eurekaservicediscovery
