@@ -148,21 +148,27 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
     var leftOut = []
     var minLeftOut = Number.MAX_SAFE_INTEGER
     for (var i = 0; i < responses.length; i++) {
-      if (acceptedClients.length < minClients) {
-        if (responses[i].length > avgNoClients) {
-          Array.prototype.push(acceptedClients, responses[i].slice(0, avgNoClients))
-          var leftOut = Math.min(0, responses[i].length - avgNoClients)
-          if (leftOut < minLeftOut) {
-            minLeftOut = leftOut
+      if (response.state == 'fulfilled') {
+        if (acceptedClients.length < minClients) {
+          if (responses[i].value.length > avgNoClients) {
+            Array.prototype.push(acceptedClients, responses[i].value.slice(0, avgNoClients))
+            var leftOut = Math.min(0, responses[i].value.length - avgNoClients)
+            if (leftOut < minLeftOut) {
+              minLeftOut = leftOut
+            }
+            leftOuts.push({
+              index: i,
+              clinetNo: avgNoClients
+            })
           }
-          leftOuts.push({
-            index: i,
-            clinetNo: avgNoClients
-          })
+          else {
+            Array.prototype.push(acceptedClients, responses[i].value)
+          }
         }
-        else {
-          Array.prototype.push(acceptedClients, responses[i])
-        }
+      }
+      else {
+        logger.error("Invalid response")
+        logger.error(response.reason)
       }
     }
     while (acceptedClients.length < minClients) {
@@ -170,12 +176,12 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
       for (var i = 0; i < leftOuts.length; i++) {
         var oldClientNo = leftOuts[i]['clientNo']
         var newClientNo = oldClientNo + minLeftOut
-        if (nexClientNo > responses[leftOuts[i]['index']].length) {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].slice(leftOuts[i]['clientNo']))
-          leftOuts[i]['clientNo'] = responses[leftOuts[i]['index']].length
+        if (nexClientNo > responses[leftOuts[i]['index']].value.length) {
+          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].value.slice(leftOuts[i]['clientNo']))
+          leftOuts[i]['clientNo'] = responses[leftOuts[i]['index']].value.length
         }
         else {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].slice(oldClientNo, newClientNo))
+          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].value.slice(oldClientNo, newClientNo))
           leftOuts[i]['clientNo'] = newClientNo
           if (temp < newClientNo) {
             temp = newClientNo
@@ -188,8 +194,6 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
       minLeftOut = temp
     }
     deferred.resolve(acceptedClients)
-  }).fail(function(err) {
-    deferred.reject(err)
   })
   return deferred.promise
 }
@@ -342,16 +346,19 @@ app.get('/train/:modelId/:minClients', function(req, res) {
       q.allSettled(unlockClientPromises).then(function(responses) {
         var unlocked = true
         for (var response in responses) {
-          unlocked = uncloked && response
+          if (response.state == 'fullfilled') {
+            unlocked = uncloked && response.value
+          }
+          else {
+            logger.error(response.reason)
+            // Handle client unlock failure here
+          }
         }
         logger.info('Clients: ' + unlocked)
         res.status(204).json({
           message: 'minimum clients criteria cannot be fullfilled',
           availableClients: acceptedClients.length
         })
-      }).fail(function(err) {
-        console.error(err)
-        logger.error(err)
       })
     }
     else {
@@ -499,13 +506,20 @@ app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
     }
     var progress = Number.MAX_SAFE_INTEGER
     var indvClientProgress = []
+    var progressUnvClientId = []
     q.allSettled(clientProgressPromises).then(function(responses) {
-      for (var response in responses) {
-        var minProgress = min(response, 'trainingProgress')
-        if (minProgress < progress) {
-          progress = minProgress
+      for (var i = 0; i < responses.length; i++) {
+        if (responses[i].state == 'fullfilled') {
+          var minProgress = min(responses[i].value, 'trainingProgress')
+          if (minProgress < progress) {
+            progress = minProgress
+          }
+          Array.prototype.push(indvClientProgress, responses[i].value)
         }
-        Array.prototype.push(indvClientProgress, responses)
+        else {
+          logger.error(responses[i].reason)
+          Array.prototype.push(progressUnvClientId, getClientIds(clientPartitions[serviceURLs[i]['instanceId']]))
+        }
       }
       logger.info("Training progress: " + progress)
       logger.info("Individual training progress: " + indvClientProgress)
@@ -515,9 +529,10 @@ app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
       if (req.params.flag == 1) {
         response['clientProgress'] = indvClientProgress
       }
+      if (progressUnvClientId.length != 0) {
+        response['progressUnavailable'] = progressUnvClientId
+      }
       res.status(200).json(response)
-    }).fail(function(err) {
-      logger.error(err)
     })
   })
 })
