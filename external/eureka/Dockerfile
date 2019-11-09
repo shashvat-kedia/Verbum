@@ -6,8 +6,8 @@ RUN mvn package
 
 FROM openjdk:8-jre-alpine
 WORKDIR /eurekaservicediscovery
-COPY --from=build /target/original-EurekaServiceDiscovery-uber.jar /eurekaservicediscovery 
-CMD ["java", "-jar", "original-EurekaServiceDiscovery-uber.jar"]
+COPY --from=build /target/eureka-service-discovery-1.0-SNAPSHOT.jar /eurekaservicediscovery 
+CMD ["java", "-jar", "eureka-service-discovery-1.0-SNAPSHOT.jar"]
 
 MAINTAINER Shashvat Kedia
 EXPOSE 8761

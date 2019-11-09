@@ -289,7 +289,6 @@ zookeeperClient.on('connected', function() {
         })
       }
       else {
-        // No config present
         process.exit(1)
       }
     })
@@ -325,7 +324,6 @@ grpcServer.addService(trainServiceProto.TextGenerationService.service, {
   }
 })
 
-// Seperate storage for models?
 app.get('/train/:modelId/:minClients', function(req, res) {
   var serviceURLs = getServiceURLs('notif')
   serviceRequestPromises = []
