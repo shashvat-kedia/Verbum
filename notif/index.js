@@ -168,7 +168,6 @@ function generateNodeId() {
         deferred.reject(err)
       }
       var id = data.toString('utf8')
-      console.log(id)
       updateZookeeper(config['ZOOKEEPER_NODES_PATH'] + '/' + id, id).then(function(_) {
         deferred.resolve(id)
       }).fail(function(err) {
@@ -183,14 +182,27 @@ function unlockPendingClients() {
   getChildren(zookeeperClient, '/verbum/unlock/' + nodeId, function(modelIds) {
     if (modelIds != null) {
       for (var modelId in modelIds) {
-        getData('/verbum/unlock/' + nodeId + '/' + modelId, function(clients) {
-          var clientIds = JSON.parse(data).clients
-          for (var clientId in clientIds) {
-            if (openConnections[clientId] != null && openConnections[clientId]['modelIdLock']
-              && openConnections[clientId]['modelId'] == modelId) {
-              openConnections[clientId]['modelIdLock'] = false
-              openConnections[clientId]['modelId'] = null
+        zookeeperClient.getData('/verbum/unlock/' + nodeId + '/' + modelId, function(err, data, stat) {
+          if (err) {
+            logger.error(err)
+            throw err
+          }
+          if (stat) {
+            var clientIds = JSON.parse(data.toString('utf8')).clients
+            for (var clientId in clientIds) {
+              if (openConnections[clientId] != null && openConnections[clientId]['modelIdLock']
+                && openConnections[clientId]['modelId'] == modelId) {
+                openConnections[clientId]['modelIdLock'] = false
+                openConnections[clientId]['modelId'] = null
+              }
             }
+            zookeeperClient.remove('/verbum/unlock/' + nodeId + '/' + modelId, -1, function(err) {
+              if (err) {
+                logger.error(err)
+                throw err
+              }
+              logger.info('Clients unlocked')
+            })
           }
         })
       }
