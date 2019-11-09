@@ -70,7 +70,20 @@ function getEurekaClient(config) {
 
 function getData(client, path, done) {
   client.getData(path, function(event) {
-    getData(client, path, done)
+    if (event.getName() == 'NODE_DATA_CHANGED') {
+      client.getData(path, function(err, data, stat) {
+        if (err) {
+          logger.error(err)
+          throw err
+        }
+        if (stat) {
+          done(data.toString('utf8'))
+        }
+      })
+    }
+    else if (event.getName() == "NODE_DELETED") {
+      deRegister(true)
+    }
   }, function(err, data, stat) {
     if (err) {
       logger.error(err)
@@ -87,7 +100,17 @@ function getData(client, path, done) {
 
 function getChildren(client, path, done) {
   client.getChildren(path, function(event) {
-    getChildren(client, path, done)
+    if (event.getName() == 'NODE_CHILDREN_CHANGED') {
+      client.exists(event.getPath(), function(err, stat) {
+        if (err) {
+          logger.error(err)
+          throw err
+        }
+        if (stat) {
+          done([event.getPath().slice(event.getPath().indexOf(path + '/'))])
+        }
+      })
+    }
   }, function(err, children, stat) {
     if (err) {
       loggeer.error(err)
@@ -178,7 +201,15 @@ function generateNodeId() {
   return deferred.promise
 }
 
-function unlockPendingClients() {
+function init() {
+  startEurekaClient()
+  startGrpcServer()
+  connectToRMQ()
+  setupSubscriber()
+  unlockClients()
+}
+
+function unlockClients() {
   getChildren(zookeeperClient, '/verbum/unlock/' + nodeId, function(modelIds) {
     if (modelIds != null) {
       for (var modelId in modelIds) {
@@ -211,14 +242,6 @@ function unlockPendingClients() {
       logger.info('No cients to unlock')
     }
   })
-}
-
-function init() {
-  startEurekaClient()
-  startGrpcServer()
-  connectToRMQ()
-  setupSubscriber()
-  unlockClients()
 }
 
 function setupSubscriber() {
