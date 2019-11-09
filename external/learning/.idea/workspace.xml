@@ -2,8 +2,23 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4b9c023b-3913-44c2-9b43-e0a6c87de8c8" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/../../docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../../docker-compose.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/sk/learning/MessageProcessor.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/sk/learning/MessageProcessor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/$PRODUCT_WORKSPACE_FILE$" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/compiler.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/encodings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/dependency-reduced-pom.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/pom.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/src/main/java/com/sk/zuulgateway/ZuulGatewayApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/src/main/resources/application.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/src/main/resources/bootstrap.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuulgateway/zuulgateway.iml" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
