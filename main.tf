@@ -4,6 +4,14 @@ provider "google" {
   zone = "us-central1-c"
 }
 
+resource "google_pubsub_topic" "learning" {
+  name = "learning"
+}
+
+resource "google_storage_bucket" "gradient-store" {
+  name = "gradient-store" 
+}
+
 data "google_container_cluster" "verbum_cluster" {
   name = "verbum_cluster"
   location = "us-central1-c"
