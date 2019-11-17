@@ -394,6 +394,18 @@ io.on('connection', (socket) => {
       modelId: null,
       isUnavailable: false
     }
+    socket.on('init', (data) => {
+      if (openConnections[data.prevId] != null) {
+        if (openConnections[data.prevId].modelIdLock) {
+          openConnections[socket['id']].modelIdLock = true
+          openConnections[socket['id']].modelId = openConnections[data.prevId].modelId
+          openConnections[data.prevId] = openConnections[socket['id']]
+        }
+        else {
+          delete openConnections[data.prevId]
+        }
+      }
+    })
     socket.on('disconnect', (response) => {
       if (openConnections[socket['id']] != null) {
         if (openConnections[socket['id']]['modelIdLock']) {
