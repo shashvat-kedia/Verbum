@@ -71,7 +71,7 @@ public class LSTMTextGeneration {
     }
 
     public void applyGradients(INDArray gradients) {
-        model.backpropGradient(gradients);
+        model.update(gradients, );
         saveModel(model, "temp.zip");
     }
 

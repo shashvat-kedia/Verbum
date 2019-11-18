@@ -386,7 +386,6 @@ zookeeperClient.on('disconnected', function() {
 
 io.on('connection', (socket) => {
   if (socket['id'] != null && openConnections[socket['id']] == null) {
-    socket.reconnect()
     logger.info('New connection: ' + socket['id'])
     openConnections[socket['id']] = {
       socket: socket,
@@ -407,6 +406,7 @@ io.on('connection', (socket) => {
       }
     })
     socket.on('disconnect', (response) => {
+      logger.info(response)
       if (openConnections[socket['id']] != null) {
         if (openConnections[socket['id']]['modelIdLock']) {
           logger.info('Trying to reconnect to: ' + socket['id'])
