@@ -23,7 +23,7 @@ message Response {
 }
 
 message ModelDetails {
-  string id = 1;
+  string modelId = 1;
 }
 
 service NotificationService {

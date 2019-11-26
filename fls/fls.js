@@ -80,6 +80,7 @@ function getGrpcClient(serviceURL) {
 
 function getActiveClientList(serviceURL, modelId) {
   var deferred = q.defer()
+  console.log(serviceURL)
   var grpcClient = getGrpcClient(serviceURL)
   grpcClient.GetActiveClients({
     modelId: modelId
@@ -87,6 +88,7 @@ function getActiveClientList(serviceURL, modelId) {
     if (err) {
       deferred.reject(err)
     }
+    console.log(response)
     grpc.closeClient(grpcClient)
     deferred.resolve(response.clients)
   })
@@ -217,12 +219,12 @@ function getData(client, path, done) {
 
 function partitionClientsByInstanceId(clients) {
   clientPartitions = {}
-  for (var client in clients) {
-    if (clientPartitions[client['notifIns']] != null) {
-      clientPartitions[client['notifIns']].push(client)
+  for (var i = 0; i < clients.length; i++) {
+    if (clientPartitions[clients[i]['notifIns']] != null) {
+      clientPartitions[clients[i]['notifIns']].push(clients[i])
     }
     else {
-      clientPartitions[client['notifIns']] = [client]
+      clientPartitions[clients[i]['notifIns']] = [clients[i]]
     }
   }
   return clientPartitions
@@ -249,6 +251,22 @@ function min(values, key) {
     }
   }
   return minValue
+}
+
+function getServiceURLs(appId) {
+  var port = 0
+  var instances = client.getInstancesByAppId(appId)
+  var serviceURLs = []
+  if (appId == 'notif') {
+    port = '5001'
+  }
+  for (var i = 0; i < instances.length; i++) {
+    serviceURLs.push({
+      'serviceURL': instances[i]['hostName'] + ':' + port,
+      'instanceId': instances[i]['instanceId']
+    })
+  }
+  return serviceURLs
 }
 
 function getClientIds(clientMetadata) {
@@ -283,7 +301,7 @@ zookeeperClient.on('connected', function() {
               throw err
             }
           })
-          grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
+          grpcServer.bind(ip.address() + ':5002', grpc.ServerCredentials.createInsecure())
           grpcServer.start()
           pubSub = new PubSub(gcpConfig.GCP_CONFIG)
         })
@@ -327,18 +345,18 @@ grpcServer.addService(trainServiceProto.TextGenerationService.service, {
 app.get('/train/:modelId/:minClients', function(req, res) {
   var serviceURLs = getServiceURLs('notif')
   serviceRequestPromises = []
-  for (var serviceURL in serviceURLs) {
-    serviceRequestPromises.push(getActiveClientList(serviceURL['serviceURL'], req.params.modelId))
+  for (var i = 0; i < serviceURLs.length; i++) {
+    serviceRequestPromises.push(getActiveClientList(serviceURLs[i]['serviceURL'], req.params.modelId))
   }
   var avgNoClients = Math.max(1, Math.floor(minClients / servieURLs.length))
   evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients).then(function(acceptedClients) {
     if (acceptedClients.length < minClients) {
       var unlockClientPromises = []
       var clientPartitions = partitionClientsByInstanceId(acceptedClients)
-      for (var serviceURL in serviceURLs) {
-        if (clientPartitions[serviceURL['instanceId']] != null) {
-          unlockClientPromises.push(unlockClients(serviceURL['serviceURL'],
-            getClientIds(clientPartitions[serviceURL['instanceId']])))
+      for (var i = 0; i < serviceURLs.length; i++) {
+        if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
+          unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
+            getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
         }
       }
       q.allSettled(unlockClientPromises).then(function(responses) {
@@ -362,8 +380,8 @@ app.get('/train/:modelId/:minClients', function(req, res) {
           availableClients: acceptedClients.length
         })
         if (failedUnlocks.length != 0) {
-          for (var failedUnlock in failedUnlocks) {
-            zookeeperClient.create('/verbum/unlock/' + failedUnlock['instanceId'] + '/' + failedUnlock['modelId'],
+          for (var i = 0; i < failedUnlocks.length; i++) {
+            zookeeperClient.create('/verbum/unlock/' + failedUnlocks[i]['instanceId'] + '/' + failedUnlocks[i]['modelId'],
               Buffer.from(JSON.stringify({
                 clients: getClientIds(clientPartitions[serviceURLs[i]['instanceId']])
               })),

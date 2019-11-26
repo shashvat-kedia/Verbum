@@ -286,15 +286,16 @@ function deRegister(isProcessExit) {
 
 grpcServer.addService(notifServiceProto.NotificationService.service, {
   GetActiveClients: function(call, callback) {
+    logger.info('RPC call to GetActiveClients')
     availableClients = []
     for (var id in openConnections) {
-      if (!openConnections[id]['modelIdLock'] && !openConnections[id]['isUnavailable']) {
+      if (openConnections[id] != null && !openConnections[id]['modelIdLock'] && !openConnections[id]['isUnavailable']) {
         availableClients.push({
           socketId: id,
           notifIns: nodeId
         })
         openConnections[id]['modelIdLock'] = true
-        openConnections[id]['modelId'] = call.id
+        openConnections[id]['modelId'] = call.modelId
       }
     }
     callback(null, availableClients)
