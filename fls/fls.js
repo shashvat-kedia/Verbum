@@ -459,13 +459,14 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         participantClients: acceptedClients,
         createdAt: Date.now()
       }
-      trainingSession['sessionId'] = uuid(trainingSession['createdAt'], config['UUID_NAMESPACE'])
+      trainingSession['sessionId'] = uuid(req.params.modelId + ":" + trainingSession['createdAt'], config['UUID_NAMESPACE'])
+      logger.info(trainingSession)
       unlockTrainingClients(req.params.modelId, serviceURLs, response.clientsToUnlock)
       var startTrainingPromises = []
       for (var i = 0; i < serviceURLs.length; i++) {
         if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
-          unlockClientPromises.push(startTraining(serviceURLs[i]['serviceURL'],
-            getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
+          unlockClientPromises.push(startClientTraining(serviceURLs[i]['serviceURL'],
+            getClientIds(clientPartitions[serviceURLs[i]['instanceId']], req.params.modelId, trainingSession['sessionId'])))
         }
       }
       q.allSettled(startTrainingPromises).then(function(responses) {
@@ -480,8 +481,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
           }
         }
       })
-      gcpDatastore.put(datastore,
-        'model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
+      gcpDatastore.put('model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
         trainingSession).then(function(_) {
           logger.info('Training session info stored on GCP datastore')
           res.status(200).json({
