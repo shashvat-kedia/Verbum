@@ -169,9 +169,9 @@ function updateZookeeper(nodePath, value) {
 }
 
 function sendPushNotification(message) {
-  for (var clientId in message.clientIds) {
-    if (openConnections[clientId] != null) {
-      openConnections[clientId].emit(config['NOTIFICATION_CHANNEL'], message.body)
+  for (var i = 0; i < message.clientIds.length; i++) {
+    if (openConnections[message.clientIds[i]] != null) {
+      openConnections[message.clientIds[i]].emit(config['NOTIFICATION_CHANNEL'], message.body)
     }
   }
 }
@@ -229,11 +229,11 @@ function unlockClients() {
           }
           if (stat) {
             var clientIds = JSON.parse(data.toString('utf8')).clients
-            for (var clientId in clientIds) {
-              if (openConnections[clientId] != null && openConnections[clientId]['modelIdLock']
-                && openConnections[clientId]['modelId'] == modelId) {
-                openConnections[clientId]['modelIdLock'] = false
-                openConnections[clientId]['modelId'] = null
+            for (var i = 0; i < clientIds.length; i++) {
+              if (openConnections[clientIds[i]] != null && openConnections[clientIds[i]]['modelIdLock']
+                && openConnections[clientIds[i]]['modelId'] == modelId) {
+                openConnections[clientIds[i]]['modelIdLock'] = false
+                openConnections[clientIds[i]]['modelId'] = null
               }
             }
             zookeeperClient.remove('/verbum/unlock/' + nodeId + '/' + modelId, -1, function(err) {

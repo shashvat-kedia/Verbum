@@ -545,10 +545,10 @@ app.post('/grads/:modelId/:sessionId/:socketId',
           else {
             var gradientPaths = []
             var clientIds = []
-            for (var participant in currentValue['participantClients']) {
-              if (participant['gradientPath'] != null) {
-                gradientPaths.push(participant['gradientPath'])
-                clientIds.push(participant['socketId'])
+            for (var i = 0; i < currentValue['participantClients'].length; i++) {
+              if (currentValue['participantClients'][i]['gradientPath'] != null) {
+                gradientPaths.push(currentValue['participantClients'][i]['gradientPath'])
+                clientIds.push(currentValue['participantClients'][i]['socketId'])
               }
             }
             if (gradientPaths.length == currentValue['participantClients'].length) {
