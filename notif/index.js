@@ -171,7 +171,15 @@ function updateZookeeper(nodePath, value) {
 function sendPushNotification(message) {
   for (var i = 0; i < message.clientIds.length; i++) {
     if (openConnections[message.clientIds[i]] != null) {
-      openConnections[message.clientIds[i]].emit(config['NOTIFICATION_CHANNEL'], message.body)
+      if (openConnections[message.clientIds[i]]['isUnavailable']) {
+        openConnections[message.clientIds[i]]['pendingMessages'].push({
+          'topic': config['NOTIFICATION_CHANNEL'],
+          'message': message.body
+        })
+      }
+      else {
+        openConnections[message.clientIds[i]].emit(config['NOTIFICATION_CHANNEL'], message.body)
+      }
     }
   }
 }
@@ -341,10 +349,19 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     var clients = call.clients
     for (var i = 0; i < clients.length; i++) {
       if (openConnections[clients[i]['socketId']] != null && openConnections[clients[i]['socketId']]['modelIdLock']) {
-        openConnections[clients[i]['socketId']].emit('start-training', {
+        var message = {
           'modelId': call.modelId,
           'trainingSessionId': call.trainingSessionId
-        })
+        }
+        if (openConnections[clients[i]['socketId']]['isUnavailable']) {
+          openConnections[clients[i]['scoketId']]['pendingMessages'].push({
+            'topic': 'start-training',
+            'message': message
+          })
+        }
+        else {
+          openConnections[clients[i]['socketId']].socket.emit('start-training', message)
+        }
       }
     }
     callback(null, {
@@ -419,7 +436,8 @@ io.on('connection', (socket) => {
       socket: socket,
       modelIdLock: false,
       modelId: null,
-      isUnavailable: false
+      isUnavailable: false,
+      pendingMessages: []
     }
     socket.on('init', (data) => {
       logger.info('Received init event for: ' + data.prevId)
@@ -441,6 +459,7 @@ io.on('connection', (socket) => {
         if (!openConnections[socket['id']]['modelIdLock']) {
           logger.info('Client disconnected: ' + socket['id'])
           openConnections[socket['id']] = null
+          openConnections[socket['id']]['isUnavailable'] = true
         }
       }
     })
@@ -455,6 +474,14 @@ io.on('connection', (socket) => {
       if (openConnections[socket['id'] != null]) {
         if (openConnections[socket['id']]['isUnavailable']) {
           openConnections[socket['id']['isUnavailable']] = false
+          if (openConnections[socket['id']]['pendingMessages'].length != 0) {
+            logger.info('Sending pending messages to client: ' + socket['id'])
+            var pendingMessages = openConnections[socket['id']]['pendingMessages']
+            for (var i = 0; i < pendingMessages.length; i++) {
+              socket.emit(pendingMessages['topic'], pendingMessages['message'])
+            }
+            openConnections[socket['id']]['peendingMessages'] = []
+          }
         }
       }
       else {
