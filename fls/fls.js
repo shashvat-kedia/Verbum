@@ -143,6 +143,25 @@ function getClientProgress(serviceURL, clients) {
   return deferred.promise
 }
 
+function startClientTraining(serviceURL, clients, modelId, trainingSessionId) {
+  var deferred = q.defer()
+  var grpcClient = getGrpcClient(serviceURL)
+  grpcClient.StartClientTraining({
+    clients: clients,
+    modelId: modelId,
+    trainingSessionId: trainingSessionId
+  }, function(err, response) {
+    if (err) {
+      deferred.reject(err)
+    }
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['successful'])
+    }
+  })
+  return deferred.promise
+}
+
 function sendNotification(instanceId, clients, message) {
   return publish(instanceId, Buffer.from(JSON.stringify({
     clientIds: clients,
@@ -442,12 +461,25 @@ app.get('/train/:modelId/:minClients', function(req, res) {
       }
       trainingSession['sessionId'] = uuid(trainingSession['createdAt'], config['UUID_NAMESPACE'])
       unlockTrainingClients(req.params.modelId, serviceURLs, response.clientsToUnlock)
-      // for (var i = 0; i < serviceURLs.length; i++) {
-      //   if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
-      //     unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
-      //       getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
-      //   }
-      // }
+      var startTrainingPromises = []
+      for (var i = 0; i < serviceURLs.length; i++) {
+        if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
+          unlockClientPromises.push(startTraining(serviceURLs[i]['serviceURL'],
+            getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
+        }
+      }
+      q.allSettled(startTrainingPromises).then(function(responses) {
+        var trainingStarted = true
+        for (var i = 0; i < responses.length; i++) {
+          if (responses[i].state == 'fullfilled') {
+            trainingStarted = trainingStarted && responses[i].value
+          }
+          else {
+            // Need to add fault-tolerance here.
+            logger.error(responses[i].reason)
+          }
+        }
+      })
       gcpDatastore.put(datastore,
         'model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
         trainingSession).then(function(_) {

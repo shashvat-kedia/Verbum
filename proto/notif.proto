@@ -14,6 +14,12 @@ message ClientProgress {
   double trainingProgress = 2;
 }
 
+message ClientTrainingInit {
+  repeated Clients clients = 1;
+  string modelId = 2;
+  string trainingSessionId = 3;
+}
+
 message TrainingProgress {
   repeated ClientProgress clientProgress = 2;
 }
@@ -30,4 +36,5 @@ service NotificationService {
   rpc GetActiveClients(ModelDetails) returns (ClientList); 
   rpc UnlockClients(ClientList) returns (Response);
   rpc GetClientTrainingProgress(ClientList) returns (TrainingProgress);
+  rpc StartClientTraining(ClientTrainingInit) return (Response);
 }

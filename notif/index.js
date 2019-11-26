@@ -312,8 +312,9 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     })
   },
   UnlockClients: function(call, callback) {
-    for (var client in call.clients) {
-      var id = client['socketId']
+    var clients = call.clients
+    for (var i = 0; i < clients.length; i++) {
+      var id = clients[i]['socketId']
       openConnections[id]['modelIdLock'] = false
       openConnections[id]['modelId'] = null
     }
@@ -323,8 +324,9 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
   },
   GetClientTrainingProgress: function(call, callback) {
     var clientProgress = []
-    for (var client in call.clients) {
-      if (openConnections[client['socketId']]['modelIdLock']) {
+    var clients = call.clients
+    for (var i = 0; i < clients.length; i++) {
+      if (openConnections[clients[i]['socketId']] != null && openConnections[clients[i]['socketId']]['modelIdLock']) {
         clientProgress.push({
           clientId: socket['id'],
           trainingProgress: openConnections[socket['id']]['trainingProgress']
@@ -333,6 +335,20 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     }
     callback(null, {
       clientProgress: clientProgress
+    })
+  },
+  StartClientTraining: function(call, callback) {
+    var clients = call.clients
+    for (var i = 0; i < clients.length; i++) {
+      if (openConnections[clients[i]['socketId']] != null && openConnections[clients[i]['socketId']]['modelIdLock']) {
+        openConnections[clients[i]['socketId']].emit('start-training', {
+          'modelId': call.modelId,
+          'trainingSessionId': call.trainingSessionId
+        })
+      }
+    }
+    callback(null, {
+      successful: true
     })
   }
 })
