@@ -12,6 +12,7 @@ import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.Updater;
 import org.deeplearning4j.nn.conf.layers.GravesLSTM;
 import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
+import org.deeplearning4j.nn.gradient.Gradient;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.util.ModelSerializer;
@@ -71,7 +72,7 @@ public class LSTMTextGeneration {
     }
 
     public void applyGradients(INDArray gradients) {
-        model.update(gradients, );
+        model.update((Gradient) gradients);
         saveModel(model, "temp.zip");
     }
 
