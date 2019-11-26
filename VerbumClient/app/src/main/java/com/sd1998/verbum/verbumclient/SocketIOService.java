@@ -10,6 +10,9 @@ import android.util.Log;
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.Socket;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 public class SocketIOService extends Service {
     private static final String TAG = SocketIOService.class.getSimpleName();
 
@@ -42,6 +45,7 @@ public class SocketIOService extends Service {
     public void onCreate() {
         super.onCreate();
         client = (VerbumClient) getApplication();
+        preferences = getApplicationContext().getSharedPreferences("Verbum", 0);
         onConnectError = new Emitter.Listener() {
             @Override
             public void call(Object... args) {
@@ -53,6 +57,21 @@ public class SocketIOService extends Service {
             @Override
             public void call(Object... args) {
                 Log.e(TAG, "Connected");
+                String prevSocketId = preferences.getString("prevSocketId", "");
+                if (prevSocketId.length() != 0){
+                    Log.e("TAG", "Sending init event");
+                    try {
+                        JSONObject jsonObject = new JSONObject();
+                        jsonObject.put("prevId", prevSocketId);
+                        client.getSocket().emit("init", jsonObject);
+                    }
+                    catch (JSONException exception) {
+                        Log.e(TAG, "Exception: " + exception.getMessage());
+                    }
+                }
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.putString("prevSocketId", client.getSocket().id());
+                editor.commit();
             }
         };
         onDisconnect = new Emitter.Listener() {
@@ -61,7 +80,13 @@ public class SocketIOService extends Service {
                 Log.e(TAG, "Disconnected");
             }
         };
-        preferences = 
+    }
+
+    public void notifyTrainingComplete() {
+        if (client.getSocket() != null) {
+            Log.e(TAG, "Emitting training-complete event");
+            client.getSocket().emit("training-complete", 1);
+        }
     }
 
     @Override

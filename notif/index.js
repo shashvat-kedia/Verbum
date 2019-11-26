@@ -394,6 +394,7 @@ io.on('connection', (socket) => {
       isUnavailable: false
     }
     socket.on('init', (data) => {
+      logger.info('Received init event for: ' + data.prevId)
       if (openConnections[data.prevId] != null) {
         if (openConnections[data.prevId].modelIdLock) {
           openConnections[socket['id']].modelIdLock = true
