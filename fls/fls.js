@@ -32,9 +32,8 @@ const Eureka = require('eureka-js-client').Eureka;
 const { PubSub } = require('@google-cloud/pubsub');
 const gcpConfig = require('./gcp_config.js');
 const app = express();
-const notifServiceProto = grpc.load('../proto/notif.proto');
-const trainServiceProto = grpc.load('../proto/train_service.proto');
 const grpcServer = new grpc.Server();
+const protoLoader = require('@grpc/proto-loader');
 const gcpDatastore = require('./gcp_datastore.js');
 const gcpStorage = require('./gcp_storage.js');
 
@@ -78,9 +77,23 @@ function getGrpcClient(serviceURL) {
   return new notifServiceProto.NotificationService(serviceURL, grpc.credentials.createInsecure())
 }
 
+function loadProtoFile(protoFilePath) {
+  return grpc.loadPackageDefinition(
+    protoLoader.loadSync(protoFilePath, {
+      keepCase: true,
+      longs: String,
+      enums: String,
+      defaults: true,
+      oneofs: true
+    })
+  )
+}
+
+const notifServiceProto = loadProtoFile('../proto/notif.proto')
+const trainServiceProto = loadProtoFile('../proto/train_service.proto')
+
 function getActiveClientList(serviceURL, modelId) {
   var deferred = q.defer()
-  console.log(serviceURL)
   var grpcClient = getGrpcClient(serviceURL)
   grpcClient.GetActiveClients({
     modelId: modelId
@@ -88,9 +101,10 @@ function getActiveClientList(serviceURL, modelId) {
     if (err) {
       deferred.reject(err)
     }
-    console.log(response)
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response.clients)
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response.clients)
+    }
   })
   return deferred.promise
 }
@@ -104,8 +118,10 @@ function unlockClients(serviceURL, clients) {
     if (err) {
       deferred.reject(err)
     }
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response['successful'])
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['successful'])
+    }
   })
   return deferred.promise
 }
@@ -119,8 +135,10 @@ function getClientProgress(serviceURL, clients) {
     if (err) {
       deferred.reject(err)
     }
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response['clientProgress'])
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['clientProgress'])
+    }
   })
   return deferred.promise
 }
@@ -142,7 +160,7 @@ function publish(topicName, data) {
   return deferred.promise
 }
 
-function evenlyDistributeClients(allSetteledPromise, avgClients) {
+function evenlyDistributeClients(allSetteledPromise, avgClients, minClients) {
   var deferred = q.defer()
   var avgNoClients = avgClients
   allSetteledPromise.then(function(responses) {
@@ -150,10 +168,10 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
     var leftOut = []
     var minLeftOut = Number.MAX_SAFE_INTEGER
     for (var i = 0; i < responses.length; i++) {
-      if (response.state == 'fulfilled') {
+      if (responses[i].state == 'fulfilled') {
         if (acceptedClients.length < minClients) {
           if (responses[i].value.length > avgNoClients) {
-            Array.prototype.push(acceptedClients, responses[i].value.slice(0, avgNoClients))
+            Array.prototype.push.apply(acceptedClients, responses[i].value.slice(0, avgNoClients))
             var leftOut = Math.min(0, responses[i].value.length - avgNoClients)
             if (leftOut < minLeftOut) {
               minLeftOut = leftOut
@@ -164,26 +182,28 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
             })
           }
           else {
-            Array.prototype.push(acceptedClients, responses[i].value)
+            Array.prototype.push.apply(acceptedClients, responses[i].value)
           }
         }
       }
       else {
         logger.error("Invalid response")
-        logger.error(response.reason)
+        logger.error(responses[i].reason)
       }
     }
+    logger.info('Accepted Clients: ')
+    logger.info(acceptedClients)
     while (acceptedClients.length < minClients) {
       var temp = Number.MAX_SAFE_INTEGER
       for (var i = 0; i < leftOuts.length; i++) {
         var oldClientNo = leftOuts[i]['clientNo']
         var newClientNo = oldClientNo + minLeftOut
         if (nexClientNo > responses[leftOuts[i]['index']].value.length) {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].value.slice(leftOuts[i]['clientNo']))
+          Array.prototype.push.apply(acceptedClients, responses[leftOuts[i]['index']].value.slice(leftOuts[i]['clientNo']))
           leftOuts[i]['clientNo'] = responses[leftOuts[i]['index']].value.length
         }
         else {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].value.slice(oldClientNo, newClientNo))
+          Array.prototype.push.apply(acceptedClients, responses[leftOuts[i]['index']].value.slice(oldClientNo, newClientNo))
           leftOuts[i]['clientNo'] = newClientNo
           if (temp < newClientNo) {
             temp = newClientNo
@@ -348,9 +368,10 @@ app.get('/train/:modelId/:minClients', function(req, res) {
   for (var i = 0; i < serviceURLs.length; i++) {
     serviceRequestPromises.push(getActiveClientList(serviceURLs[i]['serviceURL'], req.params.modelId))
   }
-  var avgNoClients = Math.max(1, Math.floor(minClients / servieURLs.length))
-  evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients).then(function(acceptedClients) {
-    if (acceptedClients.length < minClients) {
+  var avgNoClients = Math.max(1, Math.floor(req.params.minClients / serviceURLs.length))
+  logger.info('Averagee no.of clients: ' + avgNoClients)
+  evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients, req.params.minClients).then(function(acceptedClients) {
+    if (acceptedClients.length < req.params.minClients) {
       var unlockClientPromises = []
       var clientPartitions = partitionClientsByInstanceId(acceptedClients)
       for (var i = 0; i < serviceURLs.length; i++) {
@@ -404,6 +425,12 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         createdAt: Date.now()
       }
       trainingSession['sessionId'] = uuid(trainingSession['createdAt'], config['UUID_NAMESPACE'])
+      // for (var i = 0; i < serviceURLs.length; i++) {
+      //   if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
+      //     unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
+      //       getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
+      //   }
+      // }
       gcpDatastore.put(datastore,
         'model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
         trainingSession).then(function(_) {
