@@ -28,8 +28,17 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
 const { PubSub } = require("@google-cloud/pubsub");
 const gcpConfig = require("./gcp_config.js");
 const grpc = require('grpc');
+const protoLoader = require('@grpc/proto-loader');
 const grpcServer = new grpc.Server();
-const notifServiceProto = grpc.load('../proto/notif.proto');
+const notifServiceProto = grpc.loadPackageDefinition(
+  protoLoader.loadSync('../proto/notif.proto', {
+    keepCase: true,
+    longs: String,
+    enum: String,
+    defaults: true,
+    oneofs: true
+  })
+)
 
 const PORT = 8000 || process.env.PORT
 
@@ -267,7 +276,7 @@ function startEurekaClient() {
 }
 
 function startGrpcServer() {
-  grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
+  grpcServer.bind('localhost' + ':5001', grpc.ServerCredentials.createInsecure())
   grpcServer.start()
 }
 
@@ -298,7 +307,9 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
         openConnections[id]['modelId'] = call.modelId
       }
     }
-    callback(null, availableClients)
+    callback(null, {
+      'clients': availableClients
+    })
   },
   UnlockClients: function(call, callback) {
     for (var client in call.clients) {
@@ -407,14 +418,11 @@ io.on('connection', (socket) => {
         }
       }
     })
+    //Queue meessages when the client is disconnected so that they can be sent again later
     socket.on('disconnect', (response) => {
       logger.info(response)
       if (openConnections[socket['id']] != null) {
-        if (openConnections[socket['id']]['modelIdLock']) {
-          logger.info('Trying to reconnect to: ' + socket['id'])
-          socket.connect()
-        }
-        else {
+        if (!openConnections[socket['id']]['modelIdLock']) {
           logger.info('Client disconnected: ' + socket['id'])
           openConnections[socket['id']] = null
         }
@@ -422,12 +430,23 @@ io.on('connection', (socket) => {
     })
     socket.on('error', (error) => {
       if (openConnections[socket['id']] != null) {
-        if (openConnections[socket['id']]['modelIdLock']) {
-          logger.info('Trying to reconnect to: ' + socket['id'])
-          socket.connect()
-        }
-        else {
+        if (!openConnections[socket['id']]['modelIdLock']) {
           openConnections[socket['id']]['isUnavailable'] = true
+        }
+      }
+    })
+    socket.on('reconnect', () => {
+      if (openConnections[socket['id'] != null]) {
+        if (openConnections[socket['id']]['isUnavailable']) {
+          openConnections[socket['id']['isUnavailable']] = false
+        }
+      }
+      else {
+        openConnections[socket['id']] = {
+          socket: socket,
+          modelIdLock: false,
+          modelId: null,
+          isUnavailable: false
         }
       }
     })
