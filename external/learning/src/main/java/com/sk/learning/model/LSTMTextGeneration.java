@@ -99,7 +99,7 @@ public class LSTMTextGeneration {
     private void saveModel(Model model, String path) {
         try {
             File file = new File(path);
-            ModelSerializer.writeModel(model, path, false);
+            ModelSerializer.writeModel(model, path, true);
         }
         catch (IOException exception) {
             throw new RuntimeException(exception);

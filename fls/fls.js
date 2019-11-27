@@ -32,9 +32,8 @@ const Eureka = require('eureka-js-client').Eureka;
 const { PubSub } = require('@google-cloud/pubsub');
 const gcpConfig = require('./gcp_config.js');
 const app = express();
-const notifServiceProto = grpc.load('../proto/notif.proto');
-const trainServiceProto = grpc.load('../proto/train_service.proto');
 const grpcServer = new grpc.Server();
+const protoLoader = require('@grpc/proto-loader');
 const gcpDatastore = require('./gcp_datastore.js');
 const gcpStorage = require('./gcp_storage.js');
 
@@ -78,9 +77,23 @@ function getGrpcClient(serviceURL) {
   return new notifServiceProto.NotificationService(serviceURL, grpc.credentials.createInsecure())
 }
 
+function loadProtoFile(protoFilePath) {
+  return grpc.loadPackageDefinition(
+    protoLoader.loadSync(protoFilePath, {
+      keepCase: true,
+      longs: String,
+      enums: String,
+      defaults: true,
+      oneofs: true
+    })
+  )
+}
+
+const notifServiceProto = loadProtoFile('../proto/notif.proto')
+const trainServiceProto = loadProtoFile('../proto/train_service.proto')
+
 function getActiveClientList(serviceURL, modelId) {
   var deferred = q.defer()
-  console.log(serviceURL)
   var grpcClient = getGrpcClient(serviceURL)
   grpcClient.GetActiveClients({
     modelId: modelId
@@ -88,9 +101,10 @@ function getActiveClientList(serviceURL, modelId) {
     if (err) {
       deferred.reject(err)
     }
-    console.log(response)
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response.clients)
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response.clients)
+    }
   })
   return deferred.promise
 }
@@ -104,8 +118,10 @@ function unlockClients(serviceURL, clients) {
     if (err) {
       deferred.reject(err)
     }
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response['successful'])
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['successful'])
+    }
   })
   return deferred.promise
 }
@@ -119,8 +135,29 @@ function getClientProgress(serviceURL, clients) {
     if (err) {
       deferred.reject(err)
     }
-    grpc.closeClient(grpcClient)
-    deferred.resolve(response['clientProgress'])
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['clientProgress'])
+    }
+  })
+  return deferred.promise
+}
+
+function startClientTraining(serviceURL, clients, modelId, trainingSessionId) {
+  var deferred = q.defer()
+  var grpcClient = getGrpcClient(serviceURL)
+  grpcClient.StartClientTraining({
+    clients: clients,
+    modelId: modelId,
+    trainingSessionId: trainingSessionId
+  }, function(err, response) {
+    if (err) {
+      deferred.reject(err)
+    }
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['successful'])
+    }
   })
   return deferred.promise
 }
@@ -142,18 +179,19 @@ function publish(topicName, data) {
   return deferred.promise
 }
 
-function evenlyDistributeClients(allSetteledPromise, avgClients) {
+function evenlyDistributeClients(allSetteledPromise, avgClients, minClients) {
   var deferred = q.defer()
   var avgNoClients = avgClients
   allSetteledPromise.then(function(responses) {
     var acceptedClients = []
+    var clientsToUnlock = []
     var leftOut = []
     var minLeftOut = Number.MAX_SAFE_INTEGER
     for (var i = 0; i < responses.length; i++) {
-      if (response.state == 'fulfilled') {
+      if (responses[i].state == 'fulfilled') {
         if (acceptedClients.length < minClients) {
           if (responses[i].value.length > avgNoClients) {
-            Array.prototype.push(acceptedClients, responses[i].value.slice(0, avgNoClients))
+            Array.prototype.push.apply(acceptedClients, responses[i].value.slice(0, avgNoClients))
             var leftOut = Math.min(0, responses[i].value.length - avgNoClients)
             if (leftOut < minLeftOut) {
               minLeftOut = leftOut
@@ -164,13 +202,13 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
             })
           }
           else {
-            Array.prototype.push(acceptedClients, responses[i].value)
+            Array.prototype.push.apply(acceptedClients, responses[i].value)
           }
         }
       }
       else {
         logger.error("Invalid response")
-        logger.error(response.reason)
+        logger.error(responses[i].reason)
       }
     }
     while (acceptedClients.length < minClients) {
@@ -178,24 +216,35 @@ function evenlyDistributeClients(allSetteledPromise, avgClients) {
       for (var i = 0; i < leftOuts.length; i++) {
         var oldClientNo = leftOuts[i]['clientNo']
         var newClientNo = oldClientNo + minLeftOut
-        if (nexClientNo > responses[leftOuts[i]['index']].value.length) {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].value.slice(leftOuts[i]['clientNo']))
-          leftOuts[i]['clientNo'] = responses[leftOuts[i]['index']].value.length
+        if (newClientNo > responses[leftOut[i]['index']].value.length) {
+          Array.prototype.push.apply(acceptedClients, responses[leftOut[i]['index']].value.slice(leftOut[i]['clientNo']))
+          leftOuts[i]['clientNo'] = responses[leftOut[i]['index']].value.length
         }
         else {
-          Array.prototype.push(acceptedClients, responses[leftOuts[i]['index']].value.slice(oldClientNo, newClientNo))
+          Array.prototype.push.apply(acceptedClients, responses[leftOuts[i]['index']].value.slice(oldClientNo, newClientNo))
           leftOuts[i]['clientNo'] = newClientNo
-          if (temp < newClientNo) {
-            temp = newClientNo
+          if (temp < responses[leftOut[i]['index']].value.length - newClientNo) {
+            temp = responses[leftOut[i]['index']].value.length - newClientNo
           }
         }
       }
+      minLeftOut = temp
       if (temp == 0) {
         break
       }
       minLeftOut = temp
     }
-    deferred.resolve(acceptedClients)
+    for (var i = 0; i < leftOut.length; i++) {
+      Array.prototype.push.apply(clientsToUnlock, responses[leftOut[i]['index']].value.slice(leftOut[i]['clientNo']))
+    }
+    logger.info('Accepted Clients: ')
+    logger.info(acceptedClients)
+    logger.info('Client to unlock: ')
+    logger.info(clientsToUnlock)
+    deferred.resolve({
+      'acceptedClients': acceptedClients,
+      'clientsToUnlock': clientsToUnlock
+    })
   })
   return deferred.promise
 }
@@ -342,59 +391,66 @@ grpcServer.addService(trainServiceProto.TextGenerationService.service, {
   }
 })
 
+function unlockTrainingClients(modelId, serviceURLs, clients) {
+  var unlockClientPromises = []
+  var clientPartitions = partitionClientsByInstanceId(clients)
+  for (var i = 0; i < serviceURLs.length; i++) {
+    if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
+      unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
+        getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
+    }
+  }
+  q.allSettled(unlockClientPromises).then(function(responses) {
+    var failedUnlocks = []
+    var unlocked = true
+    for (var i = 0; i < responses.length; i++) {
+      if (responses[i].state == 'fullfilled') {
+        unlocked = uncloked && responses[i].value
+      }
+      else {
+        logger.error(responses[i].reason)
+        failedUnlocks.push({
+          'instanceId': serviceURLs[i]['instanceId'],
+          'modelId': modelId
+        })
+      }
+    }
+    logger.info('Clients: ' + unlocked)
+    res.status(204).json({
+      message: 'minimum clients criteria cannot be fullfilled',
+      availableClients: clients.length
+    })
+    if (failedUnlocks.length != 0) {
+      for (var i = 0; i < failedUnlocks.length; i++) {
+        zookeeperClient.create('/verbum/unlock/' + failedUnlocks[i]['instanceId'] + '/' + failedUnlocks[i]['modelId'],
+          Buffer.from(JSON.stringify({
+            clients: getClientIds(clientPartitions[serviceURLs[i]['instanceId']])
+          })),
+          zookeeper.CreateMode.PERSISTENT,
+          function(err, path) {
+            if (err) {
+              logger.error(err)
+            }
+            logger.info('Flag added to unlock clients')
+          })
+      }
+    }
+  })
+}
+
 app.get('/train/:modelId/:minClients', function(req, res) {
   var serviceURLs = getServiceURLs('notif')
   serviceRequestPromises = []
   for (var i = 0; i < serviceURLs.length; i++) {
     serviceRequestPromises.push(getActiveClientList(serviceURLs[i]['serviceURL'], req.params.modelId))
   }
-  var avgNoClients = Math.max(1, Math.floor(minClients / servieURLs.length))
-  evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients).then(function(acceptedClients) {
-    if (acceptedClients.length < minClients) {
-      var unlockClientPromises = []
-      var clientPartitions = partitionClientsByInstanceId(acceptedClients)
-      for (var i = 0; i < serviceURLs.length; i++) {
-        if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
-          unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
-            getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
-        }
-      }
-      q.allSettled(unlockClientPromises).then(function(responses) {
-        var failedUnlocks = []
-        var unlocked = true
-        for (var i = 0; i < responses.length; i++) {
-          if (responses[i].state == 'fullfilled') {
-            unlocked = uncloked && responses[i].value
-          }
-          else {
-            logger.error(responses[i].reason)
-            failedUnlocks.push({
-              'instanceId': serviceURLs[i]['instanceId'],
-              'modelId': req.params.modelId
-            })
-          }
-        }
-        logger.info('Clients: ' + unlocked)
-        res.status(204).json({
-          message: 'minimum clients criteria cannot be fullfilled',
-          availableClients: acceptedClients.length
-        })
-        if (failedUnlocks.length != 0) {
-          for (var i = 0; i < failedUnlocks.length; i++) {
-            zookeeperClient.create('/verbum/unlock/' + failedUnlocks[i]['instanceId'] + '/' + failedUnlocks[i]['modelId'],
-              Buffer.from(JSON.stringify({
-                clients: getClientIds(clientPartitions[serviceURLs[i]['instanceId']])
-              })),
-              zookeeper.CreateMode.PERSISTENT,
-              function(err, path) {
-                if (err) {
-                  logger.error(err)
-                }
-                logger.info('Flag added to unlock clients')
-              })
-          }
-        }
-      })
+  var avgNoClients = Math.max(1, Math.floor(req.params.minClients / serviceURLs.length))
+  logger.info('Averagee no.of clients: ' + avgNoClients)
+  evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients, req.params.minClients).then(function(response) {
+    var acceptedClients = response.acceptedClients
+    if (acceptedClients.length < req.params.minClients) {
+      Array.prototype.push.apply(acceptedClients, response.clientsToUnlock)
+      unlockTrainingClients(req.params.modelId, serviceURLs, acceptedClients)
     }
     else {
       var trainingSession = {
@@ -403,9 +459,29 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         participantClients: acceptedClients,
         createdAt: Date.now()
       }
-      trainingSession['sessionId'] = uuid(trainingSession['createdAt'], config['UUID_NAMESPACE'])
-      gcpDatastore.put(datastore,
-        'model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
+      trainingSession['sessionId'] = uuid(req.params.modelId + ":" + trainingSession['createdAt'], config['UUID_NAMESPACE'])
+      logger.info(trainingSession)
+      unlockTrainingClients(req.params.modelId, serviceURLs, response.clientsToUnlock)
+      var startTrainingPromises = []
+      for (var i = 0; i < serviceURLs.length; i++) {
+        if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
+          unlockClientPromises.push(startClientTraining(serviceURLs[i]['serviceURL'],
+            getClientIds(clientPartitions[serviceURLs[i]['instanceId']], req.params.modelId, trainingSession['sessionId'])))
+        }
+      }
+      q.allSettled(startTrainingPromises).then(function(responses) {
+        var trainingStarted = true
+        for (var i = 0; i < responses.length; i++) {
+          if (responses[i].state == 'fullfilled') {
+            trainingStarted = trainingStarted && responses[i].value
+          }
+          else {
+            // Need to add fault-tolerance here.
+            logger.error(responses[i].reason)
+          }
+        }
+      })
+      gcpDatastore.put('model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
         trainingSession).then(function(_) {
           logger.info('Training session info stored on GCP datastore')
           res.status(200).json({
@@ -469,10 +545,10 @@ app.post('/grads/:modelId/:sessionId/:socketId',
           else {
             var gradientPaths = []
             var clientIds = []
-            for (var participant in currentValue['participantClients']) {
-              if (participant['gradientPath'] != null) {
-                gradientPaths.push(participant['gradientPath'])
-                clientIds.push(participant['socketId'])
+            for (var i = 0; i < currentValue['participantClients'].length; i++) {
+              if (currentValue['participantClients'][i]['gradientPath'] != null) {
+                gradientPaths.push(currentValue['participantClients'][i]['gradientPath'])
+                clientIds.push(currentValue['participantClients'][i]['socketId'])
               }
             }
             if (gradientPaths.length == currentValue['participantClients'].length) {

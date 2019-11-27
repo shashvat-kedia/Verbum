@@ -6,7 +6,7 @@ const datastore = new Datastore(gcpConfig.GCP_CONFIG)
 
 function get(key) {
   var deferred = q.defer()
-  datastore.get(key, function(err, entity) {
+  datastore.get(datastore.key(key), function(err, entity) {
     if (err) {
       deferred.reject(err)
     }
@@ -18,7 +18,7 @@ function get(key) {
 function put(key, data) {
   var deferred = q.defer()
   datastore.save({
-    key: key,
+    key: datastore.key(key),
     data: data
   }, function(err) {
     if (err) {
@@ -31,7 +31,7 @@ function put(key, data) {
 
 function remove(key) {
   var deferred = q.defer()
-  datastore.delete(key, function(err) {
+  datastore.delete(datastore.key(key), function(err) {
     if (err) {
       deferred.reject(err)
     }
@@ -67,7 +67,7 @@ function executeTransactionWithRetry(operationPromise, maxRetires) {
 function getAndUpdate(key, updateOperation) {
   var deferred = q.defer()
   var transaction = datastore.transaction()
-  transaction.get(key, function(err, entity) {
+  transaction.get(datastore.key(key), function(err, entity) {
     if (err) {
       transaction.rollback()
       deferred.reject(err)

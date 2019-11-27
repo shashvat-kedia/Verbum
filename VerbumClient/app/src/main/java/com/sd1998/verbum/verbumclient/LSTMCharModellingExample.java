@@ -1,6 +1,6 @@
 package com.sd1998.verbum.verbumclient;
 
-mport org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FileUtils;
 import org.deeplearning4j.nn.conf.BackpropType;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
@@ -171,7 +171,7 @@ public class LSTMCharModellingExample {
                 sum += distribution[i];
                 if( d <= sum ) return i;
             }
-            //If we haven't found the right index yet, maybe the sum is slightly
+            //If we havenx't found the right index yet, maybe the sum is slightly
             //lower than 1 due to rounding error, so try again.
         }
         //Should be extremely unlikely to happen if distribution is a valid probability distribution

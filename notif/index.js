@@ -28,8 +28,17 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
 const { PubSub } = require("@google-cloud/pubsub");
 const gcpConfig = require("./gcp_config.js");
 const grpc = require('grpc');
+const protoLoader = require('@grpc/proto-loader');
 const grpcServer = new grpc.Server();
-const notifServiceProto = grpc.load('../proto/notif.proto');
+const notifServiceProto = grpc.loadPackageDefinition(
+  protoLoader.loadSync('../proto/notif.proto', {
+    keepCase: true,
+    longs: String,
+    enum: String,
+    defaults: true,
+    oneofs: true
+  })
+)
 
 const PORT = 8000 || process.env.PORT
 
@@ -160,9 +169,17 @@ function updateZookeeper(nodePath, value) {
 }
 
 function sendPushNotification(message) {
-  for (var clientId in message.clientIds) {
-    if (openConnections[clientId] != null) {
-      openConnections[clientId].emit(config['NOTIFICATION_CHANNEL'], message.body)
+  for (var i = 0; i < message.clientIds.length; i++) {
+    if (openConnections[message.clientIds[i]] != null) {
+      if (openConnections[message.clientIds[i]]['isUnavailable']) {
+        openConnections[message.clientIds[i]]['pendingMessages'].push({
+          'topic': config['NOTIFICATION_CHANNEL'],
+          'message': message.body
+        })
+      }
+      else {
+        openConnections[message.clientIds[i]].emit(config['NOTIFICATION_CHANNEL'], message.body)
+      }
     }
   }
 }
@@ -220,11 +237,11 @@ function unlockClients() {
           }
           if (stat) {
             var clientIds = JSON.parse(data.toString('utf8')).clients
-            for (var clientId in clientIds) {
-              if (openConnections[clientId] != null && openConnections[clientId]['modelIdLock']
-                && openConnections[clientId]['modelId'] == modelId) {
-                openConnections[clientId]['modelIdLock'] = false
-                openConnections[clientId]['modelId'] = null
+            for (var i = 0; i < clientIds.length; i++) {
+              if (openConnections[clientIds[i]] != null && openConnections[clientIds[i]]['modelIdLock']
+                && openConnections[clientIds[i]]['modelId'] == modelId) {
+                openConnections[clientIds[i]]['modelIdLock'] = false
+                openConnections[clientIds[i]]['modelId'] = null
               }
             }
             zookeeperClient.remove('/verbum/unlock/' + nodeId + '/' + modelId, -1, function(err) {
@@ -267,7 +284,7 @@ function startEurekaClient() {
 }
 
 function startGrpcServer() {
-  grpcServer.bind(ip.address() + ':5001', grpc.ServerCredentials.createInsecure())
+  grpcServer.bind('localhost' + ':5001', grpc.ServerCredentials.createInsecure())
   grpcServer.start()
 }
 
@@ -298,11 +315,14 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
         openConnections[id]['modelId'] = call.modelId
       }
     }
-    callback(null, availableClients)
+    callback(null, {
+      'clients': availableClients
+    })
   },
   UnlockClients: function(call, callback) {
-    for (var client in call.clients) {
-      var id = client['socketId']
+    var clients = call.clients
+    for (var i = 0; i < clients.length; i++) {
+      var id = clients[i]['socketId']
       openConnections[id]['modelIdLock'] = false
       openConnections[id]['modelId'] = null
     }
@@ -312,8 +332,9 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
   },
   GetClientTrainingProgress: function(call, callback) {
     var clientProgress = []
-    for (var client in call.clients) {
-      if (openConnections[client['socketId']]['modelIdLock']) {
+    var clients = call.clients
+    for (var i = 0; i < clients.length; i++) {
+      if (openConnections[clients[i]['socketId']] != null && openConnections[clients[i]['socketId']]['modelIdLock']) {
         clientProgress.push({
           clientId: socket['id'],
           trainingProgress: openConnections[socket['id']]['trainingProgress']
@@ -322,6 +343,29 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     }
     callback(null, {
       clientProgress: clientProgress
+    })
+  },
+  StartClientTraining: function(call, callback) {
+    var clients = call.clients
+    for (var i = 0; i < clients.length; i++) {
+      if (openConnections[clients[i]['socketId']] != null && openConnections[clients[i]['socketId']]['modelIdLock']) {
+        var message = {
+          'modelId': call.modelId,
+          'trainingSessionId': call.trainingSessionId
+        }
+        if (openConnections[clients[i]['socketId']]['isUnavailable']) {
+          openConnections[clients[i]['scoketId']]['pendingMessages'].push({
+            'topic': 'start-training',
+            'message': message
+          })
+        }
+        else {
+          openConnections[clients[i]['socketId']].socket.emit('start-training', message)
+        }
+      }
+    }
+    callback(null, {
+      successful: true
     })
   }
 })
@@ -392,7 +436,8 @@ io.on('connection', (socket) => {
       socket: socket,
       modelIdLock: false,
       modelId: null,
-      isUnavailable: false
+      isUnavailable: false,
+      pendingMessages: []
     }
     socket.on('init', (data) => {
       logger.info('Received init event for: ' + data.prevId)
@@ -407,27 +452,44 @@ io.on('connection', (socket) => {
         }
       }
     })
+    //Queue meessages when the client is disconnected so that they can be sent again later
     socket.on('disconnect', (response) => {
       logger.info(response)
       if (openConnections[socket['id']] != null) {
-        if (openConnections[socket['id']]['modelIdLock']) {
-          logger.info('Trying to reconnect to: ' + socket['id'])
-          socket.connect()
-        }
-        else {
+        if (!openConnections[socket['id']]['modelIdLock']) {
           logger.info('Client disconnected: ' + socket['id'])
           openConnections[socket['id']] = null
+          openConnections[socket['id']]['isUnavailable'] = true
         }
       }
     })
     socket.on('error', (error) => {
       if (openConnections[socket['id']] != null) {
-        if (openConnections[socket['id']]['modelIdLock']) {
-          logger.info('Trying to reconnect to: ' + socket['id'])
-          socket.connect()
-        }
-        else {
+        if (!openConnections[socket['id']]['modelIdLock']) {
           openConnections[socket['id']]['isUnavailable'] = true
+        }
+      }
+    })
+    socket.on('reconnect', () => {
+      if (openConnections[socket['id'] != null]) {
+        if (openConnections[socket['id']]['isUnavailable']) {
+          openConnections[socket['id']['isUnavailable']] = false
+          if (openConnections[socket['id']]['pendingMessages'].length != 0) {
+            logger.info('Sending pending messages to client: ' + socket['id'])
+            var pendingMessages = openConnections[socket['id']]['pendingMessages']
+            for (var i = 0; i < pendingMessages.length; i++) {
+              socket.emit(pendingMessages['topic'], pendingMessages['message'])
+            }
+            openConnections[socket['id']]['peendingMessages'] = []
+          }
+        }
+      }
+      else {
+        openConnections[socket['id']] = {
+          socket: socket,
+          modelIdLock: false,
+          modelId: null,
+          isUnavailable: false
         }
       }
     })
