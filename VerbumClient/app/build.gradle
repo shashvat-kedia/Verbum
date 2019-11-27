@@ -28,6 +28,19 @@ android {
         exclude 'META-INF/NOTICE.txt'
         exclude 'META-INF/notice.txt'
         exclude 'META-INF/INDEX.LIST'
+        exclude 'lib/x86_64/libopencv_img_hash.so'
+        exclude 'lib/x86/libopencv_aruco.so'
+        exclude "lib/armeabi-v7a/libcardioDecider.so"
+        exclude "lib/armeabi-v7a/libcardioRecognizer.so"
+        exclude "lib/armeabi-v7a/libopencv_imgproc.so"
+        exclude "lib/armeabi-v7a/libcardioRecognizer_tegra2.so"
+        exclude "lib/armeabi-v7a/libopencv_core.so"
+        exclude "lib/armeabi/libcardioDecider.so"
+        exclude "lib/mips/libcardioDecider.so"
+        exclude "lib/x86/libcardioDecider.so"
+        exclude 'lib/armeabi-v7a/libjniopencv_video.so'
+
+
     }
 }
 
