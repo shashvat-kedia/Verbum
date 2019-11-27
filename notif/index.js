@@ -306,13 +306,14 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     logger.info('RPC call to GetActiveClients')
     availableClients = []
     for (var id in openConnections) {
+      logger.info(openConnections[id]['modelIdLock'])
       if (openConnections[id] != null && !openConnections[id]['modelIdLock'] && !openConnections[id]['isUnavailable']) {
         availableClients.push({
           socketId: id,
           notifIns: nodeId
         })
         openConnections[id]['modelIdLock'] = true
-        openConnections[id]['modelId'] = call.modelId
+        openConnections[id]['modelId'] = call.request.modelId
       }
     }
     callback(null, {
@@ -346,12 +347,12 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     })
   },
   StartClientTraining: function(call, callback) {
-    var clients = call.clients
+    var clients = call.request.clients
     for (var i = 0; i < clients.length; i++) {
       if (openConnections[clients[i]['socketId']] != null && openConnections[clients[i]['socketId']]['modelIdLock']) {
         var message = {
-          'modelId': call.modelId,
-          'trainingSessionId': call.trainingSessionId
+          'modelId': call.request.modelId,
+          'trainingSessionId': call.request.trainingSessionId
         }
         if (openConnections[clients[i]['socketId']]['isUnavailable']) {
           openConnections[clients[i]['scoketId']]['pendingMessages'].push({
@@ -459,7 +460,6 @@ io.on('connection', (socket) => {
         if (!openConnections[socket['id']]['modelIdLock']) {
           logger.info('Client disconnected: ' + socket['id'])
           openConnections[socket['id']] = null
-          openConnections[socket['id']]['isUnavailable'] = true
         }
       }
     })

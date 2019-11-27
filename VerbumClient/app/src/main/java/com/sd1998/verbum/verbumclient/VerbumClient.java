@@ -29,7 +29,7 @@ public class VerbumClient extends Application {
         opts.port = 8000;
 
         try {
-            CHAT_SOCKET = IO.socket("http://10.6.5.43", opts);
+            CHAT_SOCKET = IO.socket("http://e34f4e63.ngrok.io", opts);
         } catch (URISyntaxException e) {
             e.printStackTrace();
             Log.e("SOCKET.IO ", e.getMessage());

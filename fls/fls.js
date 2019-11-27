@@ -146,6 +146,7 @@ function getClientProgress(serviceURL, clients) {
 function startClientTraining(serviceURL, clients, modelId, trainingSessionId) {
   var deferred = q.defer()
   var grpcClient = getGrpcClient(serviceURL)
+  logger.info(clients)
   grpcClient.StartClientTraining({
     clients: clients,
     modelId: modelId,
@@ -397,7 +398,7 @@ function unlockTrainingClients(modelId, serviceURLs, clients) {
   for (var i = 0; i < serviceURLs.length; i++) {
     if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
       unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
-        getClientIds(clientPartitions[serviceURLs[i]['instanceId']])))
+        clientPartitions[serviceURLs[i]['instanceId']]))
     }
   }
   q.allSettled(unlockClientPromises).then(function(responses) {
@@ -418,13 +419,13 @@ function unlockTrainingClients(modelId, serviceURLs, clients) {
     logger.info('Clients: ' + unlocked)
     res.status(204).json({
       message: 'minimum clients criteria cannot be fullfilled',
-      availableClients: clients.length
+      availableClients: clients
     })
     if (failedUnlocks.length != 0) {
       for (var i = 0; i < failedUnlocks.length; i++) {
         zookeeperClient.create('/verbum/unlock/' + failedUnlocks[i]['instanceId'] + '/' + failedUnlocks[i]['modelId'],
           Buffer.from(JSON.stringify({
-            clients: getClientIds(clientPartitions[serviceURLs[i]['instanceId']])
+            clients: clientPartitions[serviceURLs[i]['instanceId']]
           })),
           zookeeper.CreateMode.PERSISTENT,
           function(err, path) {
@@ -445,7 +446,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
     serviceRequestPromises.push(getActiveClientList(serviceURLs[i]['serviceURL'], req.params.modelId))
   }
   var avgNoClients = Math.max(1, Math.floor(req.params.minClients / serviceURLs.length))
-  logger.info('Averagee no.of clients: ' + avgNoClients)
+  logger.info('Average no.of clients: ' + avgNoClients)
   evenlyDistributeClients(q.allSettled(serviceRequestPromises), avgNoClients, req.params.minClients).then(function(response) {
     var acceptedClients = response.acceptedClients
     if (acceptedClients.length < req.params.minClients) {
@@ -461,12 +462,15 @@ app.get('/train/:modelId/:minClients', function(req, res) {
       }
       trainingSession['sessionId'] = uuid(req.params.modelId + ":" + trainingSession['createdAt'], config['UUID_NAMESPACE'])
       logger.info(trainingSession)
-      unlockTrainingClients(req.params.modelId, serviceURLs, response.clientsToUnlock)
+      if (response.clientsToUnlock.length > 0) {
+        unlockTrainingClients(req.params.modelId, serviceURLs, response.clientsToUnlock)
+      }
       var startTrainingPromises = []
+      var clientPartitions = partitionClientsByInstanceId(acceptedClients)
       for (var i = 0; i < serviceURLs.length; i++) {
         if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
-          unlockClientPromises.push(startClientTraining(serviceURLs[i]['serviceURL'],
-            getClientIds(clientPartitions[serviceURLs[i]['instanceId']], req.params.modelId, trainingSession['sessionId'])))
+          startTrainingPromises.push(startClientTraining(serviceURLs[i]['serviceURL'],
+            clientPartitions[serviceURLs[i]['instanceId']], req.params.modelId, trainingSession['sessionId']))
         }
       }
       q.allSettled(startTrainingPromises).then(function(responses) {
