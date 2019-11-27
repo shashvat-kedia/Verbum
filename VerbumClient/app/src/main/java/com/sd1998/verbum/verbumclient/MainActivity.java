@@ -24,21 +24,6 @@ public class MainActivity extends AppCompatActivity {
             startService(new Intent(getBaseContext(), SocketIOService.class));
         }
         String inputData = "";
-        TextGenerationAsnyTask runner = new TextGenerationAsnyTask();
-        runner.execute(inputData);
     }
 
-    class TextGenerationAsnyTask extends AsyncTask<String, Integer, String> {
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        @Override
-        protected String doInBackground(String... strings) {
-            String inputData = strings[0].substring(0, N_CHARS);
-            return inputData;
-        }
-    }
 }
