@@ -4,55 +4,62 @@ const gcpConfig = require('./gcp_config.js');
 
 const datastore = new Datastore(gcpConfig.GCP_CONFIG)
 
-function get(key) {
+function get(kind, name) {
   var deferred = q.defer()
-  datastore.get(datastore.key(key), function(err, entity) {
+  var key = datastore.key([kind, name])
+  datastore.get(key, function(err, entity) {
     if (err) {
       deferred.reject(err)
     }
-    deferred.resolve(entity['data'])
+    else {
+      deferred.resolve(entity)
+    }
   })
   return deferred.promise
 }
 
-function put(key, data) {
+function put(kind, name, data) {
   var deferred = q.defer()
+  var key = datastore.key([kind, name])
   datastore.save({
-    key: datastore.key(key),
+    key: key,
     data: data
   }, function(err) {
     if (err) {
       deferred.reject(err)
     }
-    deferred.resolve(true)
+    else {
+      deferred.resolve(true)
+    }
   })
   return deferred.promise
 }
 
-function remove(key) {
+function remove(kind, name) {
   var deferred = q.defer()
-  datastore.delete(datastore.key(key), function(err) {
+  var key = datastore.key([kind, name])
+  datastore.delete(key, function(err) {
     if (err) {
       deferred.reject(err)
     }
-    deferred.resolve(true)
+    else {
+      deferred.resolve(true)
+    }
   })
   return deferred.promise
 }
 
-function executeTransactionWithRetry(operationPromise, maxRetires) {
-  var currentAttempt = 1
-  var delay = 100
+function executeTransactionWithRetry(operationPromise, maxRetries) {
   var deferred = q.defer()
-  function executeTransaction(operationPromise) {
+  function executeTransaction(operationPromise, deferred, currentAttempt, maxRetries) {
     operationPromise.then(function(data) {
       deferred.resolve(data)
     }).fail(function(err) {
-      if (currentAttempt < maxRetires) {
+      if (currentAttempt < maxRetries) {
         setTimeout(function() {
           currentAttempt++
           delay *= 2
-          executeTransaction(operationPromise)
+          executeTransaction(operationPromise, deferred, currentAttempt, maxRetries)
         }, delay)
       }
       else {
@@ -60,34 +67,34 @@ function executeTransactionWithRetry(operationPromise, maxRetires) {
       }
     })
   }
-  executeTransaction(operationPromise)
+  executeTransaction(operationPromise, deferred, 1, 100)
   return deferred.promise
 }
 
-function getAndUpdate(key, updateOperation) {
+function getAndUpdate(kind, name, updateOperation) {
   var deferred = q.defer()
   var transaction = datastore.transaction()
-  transaction.get(datastore.key(key), function(err, entity) {
-    if (err) {
-      transaction.rollback()
-      deferred.reject(err)
-    }
-    updateOperation(entity['data']).then(function(updatedEntityData) {
-      transaction.upsert({
-        key: entity['key'],
-        data: updatedEntityData
-      }, function(err) {
-        if (err) {
-          transaction.rollback()
-          deferred.reject(err)
-        }
-        deferred.resolve(updatedEntityData)
-        transaction.commit()
-      })
-    }).fail(function(err) {
-      transaction.rollback()
-      deferred.reject(err)
+  var key = datastore.key([kind, name])
+  transaction.run().then(function() {
+    return transaction.get(key)
+  }).then(function(entities) {
+    return updateOperation(entities[0])
+  }).then(function(updatedEntityData) {
+    return transaction.save({
+      key: key,
+      data: updatedEntityData
     })
+  }).then(function() {
+    return transaction.commit()
+  }).then(function() {
+    return get(kind, name)
+  }).then(function(updatedEntityData) {
+    console.log(updatedEntityData)
+    deferred.resolve(updatedEntityData)
+  }).catch(function(err) {
+    console.log(err)
+    transaction.rollback()
+    deferred.reject(err)
   })
   return deferred.promise
 }

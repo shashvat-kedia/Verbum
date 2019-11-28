@@ -172,9 +172,9 @@ function sendNotification(instanceId, clients, message) {
 
 function publish(topicName, data) {
   var deferred = q.defer()
-  pubSub.topic(topicName).publisher().publish(data).then(function(messageId) {
+  pubSub.topic(topicName).publish(data).then(function(messageId) {
     deferred.resolve(messageId)
-  }).fail(function(err) {
+  }).catch(function(err) {
     deferred.reject(err)
   })
   return deferred.promise
@@ -250,12 +250,74 @@ function evenlyDistributeClients(allSetteledPromise, avgClients, minClients) {
   return deferred.promise
 }
 
+function unlockTrainingClients(modelId, serviceURLs, clients) {
+  var unlockClientPromises = []
+  var clientPartitions = partitionClientsByInstanceId(clients)
+  for (var i = 0; i < serviceURLs.length; i++) {
+    if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
+      unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
+        clientPartitions[serviceURLs[i]['instanceId']]))
+    }
+  }
+  q.allSettled(unlockClientPromises).then(function(responses) {
+    var failedUnlocks = []
+    var unlocked = true
+    for (var i = 0; i < responses.length; i++) {
+      if (responses[i].state == 'fullfilled') {
+        unlocked = uncloked && responses[i].value
+      }
+      else {
+        logger.error(responses[i].reason)
+        failedUnlocks.push({
+          'instanceId': serviceURLs[i]['instanceId'],
+          'modelId': modelId
+        })
+      }
+    }
+    logger.info('Clients: ' + unlocked)
+    res.status(204).json({
+      message: 'minimum clients criteria cannot be fullfilled',
+      availableClients: clients
+    })
+    if (failedUnlocks.length != 0) {
+      for (var i = 0; i < failedUnlocks.length; i++) {
+        zookeeperClient.create('/verbum/unlock/' + failedUnlocks[i]['instanceId'] + '/' + failedUnlocks[i]['modelId'],
+          Buffer.from(JSON.stringify({
+            clients: clientPartitions[serviceURLs[i]['instanceId']]
+          })),
+          zookeeper.CreateMode.PERSISTENT,
+          function(err, path) {
+            if (err) {
+              logger.error(err)
+            }
+            logger.info('Flag added to unlock clients')
+          })
+      }
+    }
+  })
+}
+
+function checkIfGradientsUploaded(participantClients) {
+  var gradientPaths = []
+  var clientIds = []
+  for (var i = 0; i < participantClients.length; i++) {
+    if (participantClients[i]['gradientPath'] != null) {
+      gradientPaths.push(participantClients[i]['gradientPath'])
+      clientIds.push(participantClients[i]['socketId'])
+    }
+  }
+  return {
+    'gradientPaths': gradientPaths,
+    'clientIds': clientIds
+  }
+}
+
 function getData(client, path, done) {
   client.getData(path, function(event) {
     getData(client, path, done)
   }, function(err, data, stat) {
     if (err) {
-      console.error(err)
+      logger.error(err)
       return
     }
     if (stat) {
@@ -335,7 +397,7 @@ zookeeperClient.on('connected', function() {
   if (config == null) {
     zookeeperClient.exists('/config', function(err, stat) {
       if (err) {
-        console.error(err)
+        logger.error(err)
         return
       }
       if (stat) {
@@ -370,14 +432,14 @@ zookeeperClient.on('disconnected', function() {
 
 grpcServer.addService(trainServiceProto.TextGenerationService.service, {
   OnTrainingFinished: function(call, callback) {
-    gcpDatastore.get('/model-training/' + call.modelId + '/' + call.sessionId).then(function(trainingSession) {
+    gcpDatastore.get('model-training/' + call.request.modelId, call.request.sessionId).then(function(trainingSession) {
       var sendNotificationPromises = []
       var clientPartitions = partitionClientsByInstanceId(trainingSession['paritcipantClients'])
       for (var serviceInstanceId in clientPartitions) {
         sendNotificationPromises.push(sendNotification(serviceInstanceId,
           getClientIds(clientPartitions[serviceInstanceId]), {
             id: 'FETCH_MODEL',
-            link: call.globalModelCheckpointURL
+            link: call.request.globalModelCheckpointURL
           }))
       }
       callback(null, {
@@ -391,53 +453,6 @@ grpcServer.addService(trainServiceProto.TextGenerationService.service, {
     })
   }
 })
-
-function unlockTrainingClients(modelId, serviceURLs, clients) {
-  var unlockClientPromises = []
-  var clientPartitions = partitionClientsByInstanceId(clients)
-  for (var i = 0; i < serviceURLs.length; i++) {
-    if (clientPartitions[serviceURLs[i]['instanceId']] != null) {
-      unlockClientPromises.push(unlockClients(serviceURLs[i]['serviceURL'],
-        clientPartitions[serviceURLs[i]['instanceId']]))
-    }
-  }
-  q.allSettled(unlockClientPromises).then(function(responses) {
-    var failedUnlocks = []
-    var unlocked = true
-    for (var i = 0; i < responses.length; i++) {
-      if (responses[i].state == 'fullfilled') {
-        unlocked = uncloked && responses[i].value
-      }
-      else {
-        logger.error(responses[i].reason)
-        failedUnlocks.push({
-          'instanceId': serviceURLs[i]['instanceId'],
-          'modelId': modelId
-        })
-      }
-    }
-    logger.info('Clients: ' + unlocked)
-    res.status(204).json({
-      message: 'minimum clients criteria cannot be fullfilled',
-      availableClients: clients
-    })
-    if (failedUnlocks.length != 0) {
-      for (var i = 0; i < failedUnlocks.length; i++) {
-        zookeeperClient.create('/verbum/unlock/' + failedUnlocks[i]['instanceId'] + '/' + failedUnlocks[i]['modelId'],
-          Buffer.from(JSON.stringify({
-            clients: clientPartitions[serviceURLs[i]['instanceId']]
-          })),
-          zookeeper.CreateMode.PERSISTENT,
-          function(err, path) {
-            if (err) {
-              logger.error(err)
-            }
-            logger.info('Flag added to unlock clients')
-          })
-      }
-    }
-  })
-}
 
 app.get('/train/:modelId/:minClients', function(req, res) {
   var serviceURLs = getServiceURLs('notif')
@@ -485,7 +500,7 @@ app.get('/train/:modelId/:minClients', function(req, res) {
           }
         }
       })
-      gcpDatastore.put('model-training/' + req.params.modelId + '/' + trainingSession['sessionId'],
+      gcpDatastore.put('model-training/' + req.params.modelId, trainingSession['sessionId'],
         trainingSession).then(function(_) {
           logger.info('Training session info stored on GCP datastore')
           res.status(200).json({
@@ -497,7 +512,6 @@ app.get('/train/:modelId/:minClients', function(req, res) {
         })
     }
   }).fail(function(err) {
-    console.error(err)
     logger.error(err)
   })
 })
@@ -505,39 +519,66 @@ app.get('/train/:modelId/:minClients', function(req, res) {
 app.post('/grads/:modelId/:sessionId/:socketId',
   multer.any(),
   gcpStorage.UPLOAD_TO_GCS_MIDDLEWARE, function(req, res) {
-    req.setTimeout(3000, function() {
+    req.setTimeout(30000, function() {
       res.status(408).json({
         message: 'Request timeout!'
       })
     })
-    res.setTimeout(3000, function() {
+    res.setTimeout(30000, function() {
       res.status(503).json({
         message: 'Response timeout!'
       })
     })
-    if (req.file != null && req.file.cloudStorageError != null) {
-      console.error(req.file.cloudstorageError)
-      logger.error(req.file.cloudStorageError)
+    if (req.files == null || (req.files != null && req.files.length == 1 && req.files[0].cloudStorageError != null)) {
+      if (req.files != null && req.files.length == 1) {
+        logger.error(req.files[0].cloudStorageError)
+      }
       res.status(406).json({
         message: 'Gradient file not found'
       })
     }
-    else {
+    else if (req.files != null && req.files.length == 1) {
       var getAndUpdatePromise = gcpDatastore.getAndUpdate(
-        '/model-training/' + req.params.modelId + '/' + req.params.sessionId, function(value) {
+        'model-training/' + req.params.modelId, req.params.sessionId, function(value) {
           var deferred = q.defer()
           var trainingSession = value
-          var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
-          if (index != null && req.file && req.file.cloudStoragePublicURL) {
-            trainingSession['participantClients'][index]['gradientPath'] = req.file.cloudStoragePublicURL
-            trainingSession['participantClients'][index]['gradSubTime'] = Date.now()
-            deferred.resolve(trainingSession)
+          if (trainingSession['status'] != null && trainingSession['status'] == 'in-progress') {
+            deferred.resolve({
+              status: 400,
+              message: 'Training already started.'
+            })
           }
           else {
-            deferred.resolve({
-              status: 404,
-              message: 'Not a paritcipant of current training round'
-            })
+            var gradientCheckRes = checkIfGradientsUploaded(trainingSession['participantClients'])
+            if (gradientCheckRes['gradientPaths'].length == trainingSession['participantClients'].length) {
+              publish(config['LEARNING_SERVICE_TOPIC'], Buffer.from({
+                gradientPaths: gradientCheckRes['gradientPaths'],
+                clientIds: gradientCheckRes['clientIds'],
+                createdAt: Date.now()
+              })).then(function(messsageId) {
+                logger.info("Message Id: " + messageId)
+                deferred.resolve({
+                  status: 202,
+                  message: 'Training started'
+                })
+              }).fail(function(err) {
+                logger.error(err)
+              })
+            }
+            else {
+              var index = searchForClient(trainingSession['participantClients'], req.params.socketId)
+              if (index != null && req.files.length == 1 && req.files[0].cloudStoragePublicURL) {
+                trainingSession['participantClients'][index]['gradientPath'] = req.files[0].cloudStoragePublicURL
+                trainingSession['participantClients'][index]['gradSubTime'] = Date.now()
+                deferred.resolve(trainingSession)
+              }
+              else {
+                deferred.resolve({
+                  status: 404,
+                  message: 'Not a paritcipant of current training round'
+                })
+              }
+            }
           }
           return deferred.promise
         })
@@ -547,14 +588,9 @@ app.post('/grads/:modelId/:sessionId/:socketId',
             res.status(currentValue['status']).json(currentValue)
           }
           else {
-            var gradientPaths = []
-            var clientIds = []
-            for (var i = 0; i < currentValue['participantClients'].length; i++) {
-              if (currentValue['participantClients'][i]['gradientPath'] != null) {
-                gradientPaths.push(currentValue['participantClients'][i]['gradientPath'])
-                clientIds.push(currentValue['participantClients'][i]['socketId'])
-              }
-            }
+            var gradientCheckRes = checkIfGradientsUploaded(currentValue['participantClients'])
+            var gradientPaths = gradientCheckRes['gradientPaths']
+            var clientIds = gradientCheckRes['clientIds']
             if (gradientPaths.length == currentValue['participantClients'].length) {
               publish(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
                 gradientPaths: gradientPaths,
@@ -566,7 +602,6 @@ app.post('/grads/:modelId/:sessionId/:socketId',
                   message: 'Gradient averaging started'
                 })
               }).fail(function(err) {
-                console.error(err)
                 logger.error(err)
               })
             }
@@ -578,7 +613,6 @@ app.post('/grads/:modelId/:sessionId/:socketId',
             }
           }
         }).fail(function(err) {
-          console.error(err)
           logger.error(err)
         })
     }

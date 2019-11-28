@@ -5,29 +5,32 @@ const gcpConfig = require('./gcp_config.js');
 const storage = new Storage(gcpConfig['GCP_CONFIG'])
 const bucket = storage.bucket(gcpConfig['BUCKET_NAME'])
 
+// Support multiple file uploads across concurrent threads
+
 function uploadToGCSMiddleware(req, res, next) {
-  if (!req.file) {
+  if (!req.files || req.files.length != 1) {
     return next()
   }
-  const gcsName = req.file.originalName //Expected to be of format <modelId>:<sessionId>:<clientId/socketId>
+  const gcsName = req.files[0].originalname //Expected to be of format <modelId>:<sessionId>:<clientId/socketId>
   const file = bucket.file(gcsName)
   const stream = file.createWriteStream({
     metadata: {
-      contentType: req.file.mimetype
+      contentType: req.files[0].mimetype
     },
     resumable: true
   })
   stream.on('error', function(err) {
-    req.file.cloudStorageError = err
+    req.files[0].cloudStorageError = err
     next(err)
   })
   stream.on('finish', function() {
-    req.file.cloudStorageObject = gcsName
+    req.files[0].cloudStorageObject = gcsName
     file.makePublic().then(function() {
-      req.file.cloudStoragePublicURL = 'https://storage.googleapis.com/' + gcpConfig['BUCKET_NAME'] + '/' + gcsName
+      req.files[0].cloudStoragePublicURL = 'https://storage.googleapis.com/' + gcpConfig['BUCKET_NAME'] + '/' + gcsName
+      next()
     })
   })
-  stream.end(req.file.buffer)
+  stream.end(req.files[0].buffer)
 }
 
 module.exports = {
