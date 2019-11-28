@@ -21,6 +21,67 @@ services:
         published: 9000
     volumes:
       - ./external/nginx/nginx.conf:/etc/nginx/nginx.conf
+  elasticsearch:
+    build:
+      context: ./external/elk/elasticsearch/
+      args:
+        ELK_VERSION: 7.4.2
+    volumes:
+      - type: bind
+        source: ./external/elk/elasticsearch/config/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+    ports:
+      - target: 9200
+        published: 9200
+      - target: 9300
+        published: 9300
+    environment:
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      ELASTIC_PASSWORD: temppassword
+    networks:
+      - elk
+  logstash:
+    build:
+      context: ./external/elk/logstash/
+      args:
+        ELK_VERSION: 7.4.2
+    volumes:
+      - type: bind
+        source: ./external/elk/logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: ./external/elk/logstash/pipeline
+        target: /usr/share/logstash/pipeline
+        read_only: true
+    ports:
+      - target: 5000
+        published: 5000
+      - target: 9600
+        published: 9600
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+  kibana:
+    build:
+      context: ./external/elk/kibana/
+      args:
+        ELK_VERSION: 7.4.2
+    volumes:
+      - type: bind
+        source: ./external/elk/kibana/config/kibana.yml
+        target: /external/usr/share/kibana/config/kibana.yml
+        read_only: true
+    ports:
+      - "5601:5601"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
   notification:
     restart: always
     build:
@@ -59,3 +120,6 @@ services:
         published: 8881
     depends_on:
       - fls
+networks:
+  elk:
+    driver: bridge
