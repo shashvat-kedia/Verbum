@@ -3,6 +3,7 @@ package com.sd1998.verbum.verbumclient;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
@@ -107,16 +108,15 @@ public class SocketIOService extends Service {
                     JSONObject messageJson = new JSONObject(args[0].toString());
                     try{
                         File file = File.createTempFile("gradient", ".ser");
-                        file.deleteOnExit();
                         OutputStream outputStream = new FileOutputStream(file);
-                        IOUtils.copy(getResources().openRawResource(getResources().getIdentifier("gradients.ser", "raw", getPackageName())) , outputStream);
+                        Resources res = getResources();
+                        IOUtils.copy(res.openRawResource(R.raw.gradients) , outputStream);
                         RequestBody requestFile =
                                 RequestBody.create(
                                         MediaType.parse(getContentResolver().getType(Uri.fromFile(file))),
                                         file
                                 );
-                        MultipartBody.Part body =
-                                MultipartBody.Part.createFormData("file", file.getName(), requestFile);
+                        MultipartBody.Part body =  MultipartBody.Part.createFormData("file", file.getName(), requestFile);
                         Call<ResponseBody> call = service.upload(body, messageJson.getString("modelId"),messageJson.getString("trainingSessionId"), client.getSocket().id());
                         call.enqueue(new Callback<ResponseBody>() {
                             @Override
