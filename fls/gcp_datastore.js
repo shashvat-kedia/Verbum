@@ -96,16 +96,19 @@ function getAndUpdate(kind, name, updateOperation) {
     })
     return defer.promise
   }).then(function(updatedEntityData) {
-    return transaction.save({
+    var defer = q.defer()
+    transaction.save({
       key: key,
       data: updatedEntityData
     })
-  }).then(function() {
-    return transaction.commit()
-  }).then(function() {
-    return get(kind, name)
+    defer.resolve(updatedEntityData)
+    return defer.promise
   }).then(function(updatedEntityData) {
-    console.log(updatedEntityData)
+    var defer = q.defer()
+    transaction.commit()
+    defer.resolve(updatedEntityData)
+    return defer.promise
+  }).then(function(updatedEntityData) {
     deferred.resolve(updatedEntityData)
   }).catch(function(err) {
     transaction.rollback()
