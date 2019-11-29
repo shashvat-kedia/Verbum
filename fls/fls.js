@@ -9,6 +9,7 @@ const zookeeperClient = zookeeper.createClient('localhost:2181', {
   retries: 1
 });
 const winston = require('winston');
+const winstonLogstashTrns = require('winston-logstash-transport');
 const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
@@ -17,8 +18,7 @@ const logger = winston.createLogger({
   defaultMeta: { service: 'fls-service' },
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' })
+    new winstonLogstashTrns.LogstashTransport({ host: 'localhost', port: 5001 })
   ]
 })
 const Multer = require('multer');
