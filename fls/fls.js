@@ -676,8 +676,8 @@ app.post('/grads/:modelId/:sessionId/:socketId',
     }
   })
 
-app.get('/model/:modelId/:sessionId/checkpoint/:socketId', function(req, res) {
-  gcpStore.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(trainingSession) {
+app.get('/model/checkpoint/:modelId/:sessionId/:socketId', function(req, res) {
+  gcpDatastore.get('model-training/' + req.params.modelId, req.params.sessionId).then(function(trainingSession) {
     if (searchForClient(trainingSession['participantClients'], req.params.socketId) != null) {
       if (trainingSession['isTrainingComplete'] != null && trainingSession['isTrainingComplete']) {
         res.status(200).json({
@@ -701,7 +701,7 @@ app.get('/model/:modelId/:sessionId/checkpoint/:socketId', function(req, res) {
 })
 
 app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
-  gcpStore.get('/model-training/' + req.params.modelId + '/' + req.params.sessionId).then(function(trainingSession) {
+  gcpDatastore.get('model-training/' + req.params.modelId, req.params.sessionId).then(function(trainingSession) {
     var clientProgressPromises = []
     var clientPartitions = partitionClientsByInstanceId(trainingSession['participantClients'])
     var serviceURLs = getServiceURLs('notif')
