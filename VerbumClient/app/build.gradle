@@ -47,7 +47,7 @@ android {
         implementation group: 'org.nd4j', name: 'nd4j-native', version: '1.0.0-beta4'
         implementation group: 'org.bytedeco.javacpp-presets', name: 'openblas', version: '0.3.3-1.4.3'
         implementation group: 'org.bytedeco.javacpp-presets', name: 'leptonica', version: '1.76.0-1.4.3'
-
+        implementation "org.joml:joml-android:1.9.3-SNAPSHOT"
         implementation 'com.squareup.retrofit2:retrofit:2.1.0'
         implementation 'com.google.code.gson:gson:2.8.6'
         implementation 'com.squareup.retrofit2:converter-gson:2.1.0'

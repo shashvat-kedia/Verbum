@@ -2,8 +2,13 @@ const { Storage } = require('@google-cloud/storage');
 const q = require('q');
 const gcpConfig = require('./gcp_config.js');
 
-const storage = new Storage(gcpConfig['GCP_CONFIG'])
-const bucket = storage.bucket(gcpConfig['BUCKET_NAME'])
+var storage = null
+var bucket = null
+
+function init() {
+  storage = new Storage(gcpConfig['GCP_CONFIG'])
+  bucket = storage.bucket(gcpConfig['BUCKET_NAME'])
+}
 
 // Support multiple file uploads across concurrent threads
 
@@ -34,5 +39,6 @@ function uploadToGCSMiddleware(req, res, next) {
 }
 
 module.exports = {
+  init: init,
   UPLOAD_TO_GCS_MIDDLEWARE: uploadToGCSMiddleware
 }

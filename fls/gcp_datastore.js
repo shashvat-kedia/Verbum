@@ -2,7 +2,11 @@ const { Datastore } = require('@google-cloud/datastore');
 const q = require('q');
 const gcpConfig = require('./gcp_config.js');
 
-const datastore = new Datastore(gcpConfig.GCP_CONFIG)
+var datastore = null
+
+function init() {
+  datastore = new Datastore(gcpConfig.GCP_CONFIG)
+}
 
 function get(kind, name) {
   var deferred = q.defer()
@@ -55,15 +59,20 @@ function executeTransactionWithRetry(operationPromise, maxRetries) {
     operationPromise.then(function(data) {
       deferred.resolve(data)
     }).fail(function(err) {
-      if (currentAttempt < maxRetries) {
-        setTimeout(function() {
-          currentAttempt++
-          delay *= 2
-          executeTransaction(operationPromise, deferred, currentAttempt, maxRetries)
-        }, delay)
+      if (typeof err == 'object' && err['retry'] != null && !err['retry']) {
+        deferred.resolve(err)
       }
       else {
-        deferred.reject(err)
+        if (currentAttempt < maxRetries) {
+          setTimeout(function() {
+            currentAttempt++
+            delay *= 2
+            executeTransaction(operationPromise, deferred, currentAttempt, maxRetries)
+          }, delay)
+        }
+        else {
+          deferred.reject(err)
+        }
       }
     })
   }
@@ -78,7 +87,14 @@ function getAndUpdate(kind, name, updateOperation) {
   transaction.run().then(function() {
     return transaction.get(key)
   }).then(function(entities) {
-    return updateOperation(entities[0])
+    var defer = q.defer()
+    updateOperation(entities[0]).then(function(updatedEntityData) {
+      defer.resolve(updatedEntityData)
+    }).fail(function(err) {
+      transaction.rollback()
+      deferred.reject(err)
+    })
+    return defer.promise
   }).then(function(updatedEntityData) {
     return transaction.save({
       key: key,
@@ -92,7 +108,6 @@ function getAndUpdate(kind, name, updateOperation) {
     console.log(updatedEntityData)
     deferred.resolve(updatedEntityData)
   }).catch(function(err) {
-    console.log(err)
     transaction.rollback()
     deferred.reject(err)
   })
@@ -100,6 +115,7 @@ function getAndUpdate(kind, name, updateOperation) {
 }
 
 module.exports = {
+  init: init,
   get: get,
   put: put,
   remove: remove,

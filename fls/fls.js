@@ -29,7 +29,7 @@ const ip = require('ip');
 const q = require('q');
 const uuid = require('uuid/v3');
 const Eureka = require('eureka-js-client').Eureka;
-const { PubSub } = require('@google-cloud/pubsub');
+const GCPPubSub = require('@google-cloud/pubsub');
 const gcpConfig = require('./gcp_config.js');
 const app = express();
 const grpcServer = new grpc.Server();
@@ -45,6 +45,7 @@ app.use(cors())
 
 var config = null;
 var pubSub = null;
+var pubClient = null;
 var isConnectedToZookeeper = false;
 
 function createEurekaClient(config) {
@@ -164,7 +165,7 @@ function startClientTraining(serviceURL, clients, modelId, trainingSessionId) {
 }
 
 function sendNotification(instanceId, clients, message) {
-  return publish(instanceId, Buffer.from(JSON.stringify({
+  return checkAndPublish(instanceId, Buffer.from(JSON.stringify({
     clientIds: clients,
     message: messsage
   })))
@@ -172,10 +173,58 @@ function sendNotification(instanceId, clients, message) {
 
 function publish(topicName, data) {
   var deferred = q.defer()
-  pubSub.topic(topicName).publish(data).then(function(messageId) {
-    deferred.resolve(messageId)
+  pubClient.publish({
+    topic: pubClient.topicPath(gcpConfig.GCP_CONFIG['projectId'], topicName),
+    messages: [
+      {
+        data: data
+      }
+    ]
+  }).then(function(responses) {
+    deferred.resolve(responses)
   }).catch(function(err) {
     deferred.reject(err)
+  })
+  return deferred.promise
+}
+
+function checkAndPublish(topicName, data) {
+  var deferred = q.defer()
+  pubSub.getTopics(function(err, topics) {
+    if (err) {
+      console.error(err)
+      deferred.reject(err)
+    }
+    else {
+      var isPresent = false
+      for (var i = 0; i < topics.length; i++) {
+        if (topics[i]['name'].substring(topics[i]['name'].lastIndexOf('/') + 1) == topicName) {
+          isPresent = true
+          break
+        }
+      }
+      if (!isPresent) {
+        pubSub.createTopic(topicName).then(function(err, topic, apiResponse) {
+          if (err) {
+            deferred.reject(err)
+          }
+          else {
+            publish(topicName, data).then(function(messageId) {
+              deferred.resolve(messageId)
+            }).fail(function(err) {
+              deferred.reject(err)
+            })
+          }
+        })
+      }
+      else {
+        publish(topicName, data).then(function(messageId) {
+          deferred.resolve(messageId)
+        }).fail(function(err) {
+          deferred.reject(err)
+        })
+      }
+    }
   })
   return deferred.promise
 }
@@ -415,7 +464,10 @@ zookeeperClient.on('connected', function() {
           })
           grpcServer.bind(ip.address() + ':5002', grpc.ServerCredentials.createInsecure())
           grpcServer.start()
-          pubSub = new PubSub(gcpConfig.GCP_CONFIG)
+          pubSub = new GCPPubSub.PubSub(gcpConfig.GCP_CONFIG)
+          pubClient = new GCPPubSub.v1.PublisherClient(gcpConfig.GCP_CONFIG)
+          gcpDatastore.init()
+          gcpStorage.init()
         })
       }
       else {
@@ -543,26 +595,28 @@ app.post('/grads/:modelId/:sessionId/:socketId',
           var deferred = q.defer()
           var trainingSession = value
           if (trainingSession['status'] != null && trainingSession['status'] == 'in-progress') {
-            deferred.resolve({
+            deeferred.reject({
               status: 400,
-              message: 'Training already started.'
+              message: 'Training already started.',
+              retry: false
             })
           }
           else {
             var gradientCheckRes = checkIfGradientsUploaded(trainingSession['participantClients'])
             if (gradientCheckRes['gradientPaths'].length == trainingSession['participantClients'].length) {
-              publish(config['LEARNING_SERVICE_TOPIC'], Buffer.from({
+              checkAndPublish(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
                 gradientPaths: gradientCheckRes['gradientPaths'],
                 clientIds: gradientCheckRes['clientIds'],
                 createdAt: Date.now()
-              })).then(function(messsageId) {
-                logger.info("Message Id: " + messageId)
-                deferred.resolve({
+              }))).then(function(messageId) {
+                logger.info("Published to GCP Cloud PubSub")
+                deferred.reject({
                   status: 202,
-                  message: 'Training started'
+                  message: 'Training started',
+                  retry: false
                 })
               }).fail(function(err) {
-                logger.error(err)
+                throw err
               })
             }
             else {
@@ -573,9 +627,10 @@ app.post('/grads/:modelId/:sessionId/:socketId',
                 deferred.resolve(trainingSession)
               }
               else {
-                deferred.resolve({
+                deferred.reject({
                   status: 404,
-                  message: 'Not a paritcipant of current training round'
+                  message: 'Not a paritcipant of current training round',
+                  retry: false
                 })
               }
             }
@@ -585,6 +640,9 @@ app.post('/grads/:modelId/:sessionId/:socketId',
       gcpDatastore.executeTransactionWithRetry(getAndUpdatePromise,
         config['FLS_SERVICE_MAX_RETRIES']).then(function(currentValue) {
           if (currentValue['status'] != null && currentValue['status'] != 200) {
+            if (currentValue['retry'] != null) {
+              delete currentValue['retry']
+            }
             res.status(currentValue['status']).json(currentValue)
           }
           else {
@@ -592,12 +650,12 @@ app.post('/grads/:modelId/:sessionId/:socketId',
             var gradientPaths = gradientCheckRes['gradientPaths']
             var clientIds = gradientCheckRes['clientIds']
             if (gradientPaths.length == currentValue['participantClients'].length) {
-              publish(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
+              checkAndPublish(config['LEARNING_SERVICE_TOPIC'], Buffer.from(JSON.stringify({
                 gradientPaths: gradientPaths,
                 clientIds: clientIds,
                 createdAt: Date.now()
-              }))).then(function(messsageId) {
-                logger.info("Message Id: " + messageId)
+              }))).then(function(messageId) {
+                logger.info("Published to GCP Cloud PubSub")
                 res.status(200).json({
                   message: 'Gradient averaging started'
                 })
