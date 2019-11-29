@@ -595,7 +595,7 @@ app.post('/grads/:modelId/:sessionId/:socketId',
           var deferred = q.defer()
           var trainingSession = value
           if (trainingSession['status'] != null && trainingSession['status'] == 'in-progress') {
-            deeferred.reject({
+            deferred.reject({
               status: 400,
               message: 'Training already started.',
               retry: false
