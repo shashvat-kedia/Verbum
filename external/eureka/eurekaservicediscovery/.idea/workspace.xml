@@ -2,14 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1101cd38-4d52-41db-8dfd-fc8022d4222b" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/../Dockerfile" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../learning/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../learning/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../learning/dependency-reduced-pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/dependency-reduced-pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../../learning/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../../fls/fls.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../../fls/fls.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../learning/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/../../learning/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../fls/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../fls/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../../fls/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../../fls/package.json" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

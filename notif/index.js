@@ -54,7 +54,7 @@ var subscription = null
 function getEurekaClient(config) {
   return new Eureka({
     instance: {
-      app: 'notif',
+      app: config['NOTIFICATION_SERVICE_APP_ID'],
       instanceId: nodeId,
       hostName: 'localhost',
       ipAddr: ip.address(),

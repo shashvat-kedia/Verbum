@@ -14,6 +14,14 @@ services:
     ports:
       - target: 8761
         published: 8761
+  zuul:
+    restart: always,
+    build:
+      context: ./external/zuul
+      dockerfile: Dockerfile
+    ports:
+      - target: 8050
+        published: 8050
   nginx:
     image: nginx:1.13.11
     ports:
