@@ -9,6 +9,16 @@ message ClientList {
   repeated Client clients = 1;
 }
 
+message TrainedClients {
+  Client client = 1;
+  string lastTrainingSession = 2;
+  string lastTrainingFinish = 3;
+}
+
+message TrainedClientsList {
+  repeated TrainedClients clients = 1;
+}
+
 message ClientProgress {
   string clientId = 1;
   double trainingProgress = 2;
@@ -24,11 +34,6 @@ message TrainingProgress {
   repeated ClientProgress clientProgress = 2;
 }
 
-message Session {
-  string modelId = 1;
-  string trainingSessionId = 2;
-}
-
 message Response {
   bool successful = 1;
 }
@@ -42,5 +47,5 @@ service NotificationService {
   rpc UnlockClients(ClientList) returns (Response);
   rpc GetClientTrainingProgress(ClientList) returns (TrainingProgress);
   rpc StartClientTraining(ClientTrainingInit) returns (Response);
-  rpc GetTrainedClients(Session) returns (ClientList) ; 
+  rpc GetTrainedClients(ClientList) returns (TrainedClientsList) ; 
 }

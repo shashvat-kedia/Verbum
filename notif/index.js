@@ -375,8 +375,10 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
       if (openConnections[id]['modelIdLock'] && openConnections[id]['modelId'] == call.request.modelId) {
         if (openConnections[id]['lastTrainingSession'] != null) {
           trainedClients.push({
-            socketId: id,
-            notifIns: nodeId,
+            client: {
+              socketId: id,
+              notifIns: nodeId
+            },
             lastTrainingSession: openConnections[id]['lastTrainingSession'],
             lastTrainingFinish: openConnections[id]['lastTrainingFinish']
           })

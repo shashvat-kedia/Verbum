@@ -144,6 +144,23 @@ function getClientProgress(serviceURL, clients) {
   return deferred.promise
 }
 
+function getTrainedClients(serviceURL, clients) {
+  var deferred = q.defer()
+  var grpcClient = getGrpcClient(serviceURL)
+  grpcClient.GetTrainedClients({
+    clients: clients
+  }, function(err, response) {
+    if (err) {
+      deferred.reject(err)
+    }
+    else {
+      grpc.closeClient(grpcClient)
+      deferred.resolve(response['clients'])
+    }
+  })
+  return deferred.promise
+}
+
 function startClientTraining(serviceURL, clients, modelId, trainingSessionId) {
   var deferred = q.defer()
   var grpcClient = getGrpcClient(serviceURL)
@@ -745,7 +762,37 @@ app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
 })
 
 app.get('/training/finish/:modelId/:sessionId/:flag', function(req, res) {
-
+  gcpDatastore.get('model-training/' + req.params.modelId, req.params.sessionId).then(function(trainingSession) {
+    var getTrainedClientsPromises = []
+    var clientPartitions = partitionClientsByInstanceId(trainingSession['participantClients'])
+    var serviceURLs = getServiceURLs('notif')
+    for (var serviceURL in serviceURLs) {
+      if (clientPartitions[serviceURL['instanceId']] != null) {
+        getTrainedClientsPromises.push(getTrainedClients(serviceURL['serviceURL'],
+          getClientIds(clientPartitions[serviceURL['instanceId']])))
+      }
+    }
+    q.allSettled(getTrainedClientsPromises).then(function(responses) {
+      var trainFinishClients = []
+      for (var i = 0; i < responses.length; i++) {
+        if (responses[i].status == 'fullfiled') {
+          Array.prototype.push.apply(trainFinishClients, responses[i].value)
+        }
+        else {
+          logger.error(responses[i].reason)
+        }
+      }
+      var clientsCompletedTraining = trainFinishClients.length / trainingSession['participantClients'].length
+      var response = {
+        message: 'Train finished clients',
+        clientsCompletedTraining: clientsCompletedTraining
+      }
+      if (req.params.flag) {
+        response['clients'] = trainFinishClients
+      }
+      res.status(200).json(response)
+    })
+  })
 })
 
 app.listen(PORT, function() {
