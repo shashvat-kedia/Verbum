@@ -2,13 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="4b9c023b-3913-44c2-9b43-e0a6c87de8c8" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../eureka/eurekaservicediscovery/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../eureka/eurekaservicediscovery/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../fls/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../fls/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../fls/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../fls/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../notif/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/../../notif/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../zuul/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/../zuul/Dockerfile" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

@@ -317,7 +317,7 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
       }
     }
     callback(null, {
-      'clients': availableClients
+      clients: availableClients
     })
   },
   UnlockClients: function(call, callback) {
@@ -367,6 +367,24 @@ grpcServer.addService(notifServiceProto.NotificationService.service, {
     }
     callback(null, {
       successful: true
+    })
+  },
+  GetTrainedClients: function(call, callback) {
+    var trainedClients = []
+    for (var id in openConnections) {
+      if (openConnections[id]['modelIdLock'] && openConnections[id]['modelId'] == call.request.modelId) {
+        if (openConnections[id]['lastTrainingSession'] != null) {
+          trainedClients.push({
+            socketId: id,
+            notifIns: nodeId,
+            lastTrainingSession: openConnections[id]['lastTrainingSession'],
+            lastTrainingFinish: openConnections[id]['lastTrainingFinish']
+          })
+        }
+      }
+    }
+    callback(null, {
+      clients: trainedClients
     })
   }
 })
@@ -494,6 +512,14 @@ io.on('connection', (socket) => {
       }
     })
     socket.on('training-complete', (data) => {
+      if (openConnections[socket['id']] != null) {
+        if (openConnections[socket['id']]['modelIdLock'] && openConnections[socket['id']]['modelId'] == data.modelId) {
+          openConnections[socket['id']]['modelIdLock'] = false
+          openConnections[socket['id']]['modelIf'] = null
+          openConnections[socket['id']]['lastTrainingSession'] = data.trainingSessionId
+          openConnections[socket['id']]['lastTrainingFinish'] = data.trainingFinish
+        }
+      }
       //Queue message containing Date.now() and socket['id'] and data.modelId and data.sessionId
     })
     socket.on('progress-update', (data) => {

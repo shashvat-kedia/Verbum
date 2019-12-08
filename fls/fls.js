@@ -744,6 +744,10 @@ app.get('/training/progress/:modelId/:sessionId/:flag', function(req, res) {
   })
 })
 
+app.get('/training/finish/:modelId/:sessionId/:flag', function(req, res) {
+
+})
+
 app.listen(PORT, function() {
   logger.info("FLS service listening on: " + PORT)
   zookeeperClient.connect()
