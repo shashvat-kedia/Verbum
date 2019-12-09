@@ -458,6 +458,7 @@ io.on('connection', (socket) => {
       modelIdLock: false,
       modelId: null,
       isUnavailable: false,
+      uneligible: true,
       pendingMessages: []
     }
     socket.on('init', (data) => {
@@ -473,11 +474,10 @@ io.on('connection', (socket) => {
         }
       }
     })
-    //Queue meessages when the client is disconnected so that they can be sent again later
     socket.on('disconnect', (response) => {
       logger.info(response)
       if (openConnections[socket['id']] != null) {
-        if (!openConnections[socket['id']]['modelIdLock']) {
+        if (!openConnections[socket['id']]['modelIdLock'] && !openConnections[socket['id']]['uneligible']) {
           logger.info('Client disconnected: ' + socket['id'])
           openConnections[socket['id']] = null
         }
@@ -522,11 +522,21 @@ io.on('connection', (socket) => {
           openConnections[socket['id']]['lastTrainingFinish'] = data.trainingFinish
         }
       }
-      //Queue message containing Date.now() and socket['id'] and data.modelId and data.sessionId
     })
     socket.on('progress-update', (data) => {
       if (openConnections[socket['id']] != null && openConnections[socket['id']]['modelId'] == data.modelId) {
         openConnections[socket['id']]['trainingProgress'] = data['trainingProgress']
+      }
+    })
+    socket.on('battery-status', (data) => {
+      if (openConnections[socket['id']] != null) {
+        openConnections[socket['id']]['batteryStatus'] = data.batteryStatus
+        if (data.batteryStatus < config['client']['batteryLimit']) {
+          openConnections[socket['id']]['uneligible'] = true
+        }
+        else if (openConnections[socket['id']]['uneligible'] && data.batteryStatus > config['client']['batteryLimit']) {
+          openConnections[socket['id']]['uneligible'] = false
+        }
       }
     })
   }

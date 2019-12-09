@@ -29,6 +29,7 @@
     "q": "^1.5.1",
     "socket-io": "^1.0.0",
     "socket.io": "^2.3.0",
+    "socket.io-stream": "^0.9.1",
     "uuid": "^3.3.3",
     "winston": "^3.2.1",
     "winston-logstash-transport": "^2.0.0"
