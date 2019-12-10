@@ -3,7 +3,34 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const grpc = require('grpc');
 const commandLineArgs = require('command-line-args');
+const commandLineUsage = require('command-line-usage');
+const sections = [
+  {
+    header: 'Options',
+    optionList: [
+      {
+        name: 'help',
+        description: 'Display this usage guide.'
+      },
+      {
+        name: 'hostname',
+        typeLabel: '{underline} string',
+        description: 'Hostname for Zookeeper instance'
+      },
+      {
+        name: 'port',
+        typeLabel: '{underline} string',
+        description: 'Port for Zookeeper instance'
+      }
+    ]
+  }
+];
 const optionDefinitions = [
+  {
+    name: 'help',
+    alias: 'help',
+    type: Boolean
+  },
   {
     name: 'hostname',
     alias: 'hostname',
@@ -811,10 +838,15 @@ app.get('/training/finish/:modelId/:sessionId/:flag', function(req, res) {
   })
 })
 
-app.listen(PORT, function() {
-  logger.info("FLS service listening on: " + PORT)
-  zookeeperClient.connect()
-})
+if (!commandLineArgs['help']) {
+  app.listen(PORT, function() {
+    logger.info("FLS service listening on: " + PORT)
+    zookeeperClient.connect()
+  })
+}
+else {
+  console.log(commandLineUsage(sections))
+}
 
 process.on('exit', function() {
   deRegister(true)

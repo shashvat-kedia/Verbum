@@ -20,7 +20,34 @@ const logger = winston.createLogger({
 })
 const Eureka = require('eureka-js-client').Eureka;
 const commandLineArgs = require('command-line-args');
+const commandLineUsage = require('command-line-usage');
+const sections = [
+  {
+    header: 'Options',
+    optionList: [
+      {
+        name: 'help',
+        description: 'Display this usage guide.'
+      },
+      {
+        name: 'hostname',
+        typeLabel: '{underline} string',
+        description: 'Hostname for Zookeeper instance'
+      },
+      {
+        name: 'port',
+        typeLabel: '{underline} string',
+        description: 'Port for Zookeeper instance'
+      }
+    ]
+  }
+];
 const optionDefinitions = [
+  {
+    name: 'help',
+    alias: 'help',
+    type: Boolean
+  },
   {
     name: 'hostname',
     alias: 'hostname',
@@ -561,11 +588,16 @@ io.on('connection', (socket) => {
   }
 })
 
-server.listen(PORT, function() {
-  zookeeperClient.connect()
-  logger.info("Listening on: " + PORT)
-  logger.info("Host IP address: " + ip.address())
-});
+if (!commandLineArgs['help']) {
+  server.listen(PORT, function() {
+    zookeeperClient.connect()
+    logger.info("Listening on: " + PORT)
+    logger.info("Host IP address: " + ip.address())
+  });
+}
+else {
+  console.log(commandLineUsage(sections))
+}
 
 process.on('exit', function() {
   deRegister(true)
