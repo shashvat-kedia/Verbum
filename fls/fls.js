@@ -2,8 +2,24 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const grpc = require('grpc');
+const commandLineArgs = require('command-line-args');
+const optionDefinitions = [
+  {
+    name: 'hostname',
+    alias: 'hostname',
+    type: String,
+    multiple: false
+  },
+  {
+    name: 'port',
+    alias: 'port',
+    type: String,
+    multiple: false
+  }
+];
+const commandLineOptions = commandLineArgs(optionDefinitions);
 const zookeeper = require('node-zookeeper-client');
-const zookeeperClient = zookeeper.createClient('localhost:2181', {
+const zookeeperClient = zookeeper.createClient(commandLineOptions['hostname'] + ':' + commandLineOptions['port'], {
   sessionTimeout: 30000,
   spinDelay: 1000,
   retries: 1
